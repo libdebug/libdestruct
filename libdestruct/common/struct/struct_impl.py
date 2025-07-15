@@ -175,7 +175,7 @@ class struct_impl(struct):
         )
         return f"""{self.name} {{
 {members}
-{' ' * indent}}}"""
+{" " * indent}}}"""
 
     def __repr__(self: struct_impl) -> str:
         """Return a string representation of the struct."""

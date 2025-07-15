@@ -22,7 +22,6 @@ from libdestruct.libdestruct import inflate, inflater
 __all__ = [
     "array",
     "array_of",
-    "offset",
     "c_int",
     "c_long",
     "c_str",
@@ -32,8 +31,9 @@ __all__ = [
     "enum_of",
     "inflate",
     "inflater",
-    "struct",
+    "offset",
     "ptr",
     "ptr_to",
     "ptr_to_self",
+    "struct",
 ]

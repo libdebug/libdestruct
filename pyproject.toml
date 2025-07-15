@@ -44,7 +44,7 @@ exclude = ["test/"]
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D100", "D104", "EM", "FBT", "G", "TD", "TRY002", "TRY003", "RET505", "SLF001", "S603", "S606", "N801"]
+ignore = ["D100", "D104", "EM", "FBT", "G", "TD", "TRY002", "TRY003", "RET505", "SLF001", "S603", "S606", "N801", "COM812"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

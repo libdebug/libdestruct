@@ -26,7 +26,7 @@ class c_str(array):
 
     def get(self: c_str, index: int = -1) -> bytes:
         """Return the character at the given index."""
-        if index != -1 and index < 0 or index >= self.count():
+        if (index != -1 and index < 0) or index >= self.count():
             raise IndexError("String index out of range.")
 
         if index == -1:
@@ -40,7 +40,7 @@ class c_str(array):
 
     def _set(self: c_str, value: bytes, index: int = -1) -> None:
         """Set the character at the given index to the given value."""
-        if index != -1 and index < 0 or index >= self.count():
+        if (index != -1 and index < 0) or index >= self.count():
             raise IndexError("String index out of range.")
 
         if index == -1:

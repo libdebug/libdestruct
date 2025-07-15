@@ -8,7 +8,7 @@ from libdestruct.common.ptr.ptr_factory import ptr_to, ptr_to_self
 from libdestruct.common.struct.struct import struct
 from libdestruct.common.struct.struct_impl import struct_impl
 
-__all__ = ["struct", "struct_impl", "ptr_to", "ptr_to_self"]
+__all__ = ["ptr_to", "ptr_to_self", "struct", "struct_impl"]
 
 import libdestruct.common.ptr.ptr_field_inflater
 import libdestruct.common.struct.struct_inflater  # noqa: F401
