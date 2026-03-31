@@ -23,8 +23,8 @@ class array(obj):
         return self.count()
 
     @abstractmethod
-    def get(self: array, index: int) -> object:
-        """Return the element at the given index."""
+    def get(self: array, index: int = -1) -> object:
+        """Return the element at the given index, or all elements if index is -1."""
 
     def __getitem__(self: array, index: int) -> object:
         """Return the element at the given index."""

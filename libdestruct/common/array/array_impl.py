@@ -46,8 +46,10 @@ class array_impl(array):
         """Get the size of the array."""
         return self._count
 
-    def get(self: array, index: int) -> object:
-        """Return the element at the given index."""
+    def get(self: array, index: int = -1) -> object:
+        """Return the element at the given index, or all elements if index is -1."""
+        if index == -1:
+            return [self.backing_type(self.resolver.relative_from_own(i * self.item_size, 0)) for i in range(self._count)]
         return self.backing_type(self.resolver.relative_from_own(index * self.item_size, 0))
 
     def _set(self: array_impl, _: list[obj]) -> None:

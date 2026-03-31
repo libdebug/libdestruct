@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from libdestruct.common.field import Field
 from libdestruct.common.obj import obj
@@ -14,8 +14,9 @@ from libdestruct.common.obj import obj
 if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.backing.resolver import Resolver
 
+T = TypeVar("T")
 
-class ptr(obj):
+class ptr(obj[T]):
     """A pointer to an object in memory."""
 
     size: int = 8
@@ -76,7 +77,7 @@ class ptr(obj):
 
         try:
             # If the address is invalid, this will raise an IndexError or ValueError.
-            self.resolver.absolute_from_own(address).resolve(length)
+            self.resolver.absolute_from_own(address).resolve(length or 1, 0)
         except (IndexError, ValueError):
             return None
 

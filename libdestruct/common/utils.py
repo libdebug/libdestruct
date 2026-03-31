@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+import sys
 from types import MethodType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ForwardRef
 
 from libdestruct.common.field import Field
 
@@ -38,7 +39,31 @@ def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
         field_object = item_or_inflater.__self__
         return field_object.get_size()
 
+    # Check if item is directly a Field instance
+    if isinstance(item_or_inflater, Field):
+        return item_or_inflater.get_size()
+
     raise ValueError(f"Cannot determine the size of {item_or_inflater}")
+
+
+def _resolve_annotation(annotation: Any, defining_class: type) -> Any:
+    """Resolve a string annotation to its actual type.
+
+    For annotations that are strings (e.g., from ``from __future__ import annotations``),
+    evaluates them in the defining class's module namespace.
+    Non-string annotations are returned as-is.
+    """
+    if not isinstance(annotation, str):
+        return annotation
+
+    module = sys.modules.get(defining_class.__module__, None)
+    globalns = getattr(module, "__dict__", {}) if module else {}
+    localns = {defining_class.__name__: defining_class}
+
+    try:
+        return eval(annotation, globalns, localns)  # noqa: S307
+    except Exception:
+        return ForwardRef(annotation)
 
 
 def iterate_annotation_chain(item: obj, terminate_at: object | None = None) -> Generator[tuple[str, Any, type[obj]]]:
@@ -53,4 +78,4 @@ def iterate_annotation_chain(item: obj, terminate_at: object | None = None) -> G
 
     for reference_item in chain:
         for name, annotation in reference_item.__annotations__.items():
-            yield name, annotation, reference_item
+            yield name, _resolve_annotation(annotation, reference_item), reference_item

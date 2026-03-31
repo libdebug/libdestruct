@@ -12,7 +12,7 @@ from libdestruct.backing.resolver import Resolver
 class FakeResolver(Resolver):
     """A class that can resolve elements in a simulated memory storage."""
 
-    def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0) -> FakeResolver:
+    def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0) -> None:
         """Initializes a basic fake resolver."""
         self.memory = memory if memory is not None else {}
         self.address = address
@@ -47,7 +47,7 @@ class FakeResolver(Resolver):
         result = b""
 
         while size:
-            page = self.memory.get(page_address, b"\x00" * (0x1000 - page_offset))
+            page = self.memory.get(page_address, b"\x00" * 0x1000)
             page_size = min(size, 0x1000 - page_offset)
             result += page[page_offset : page_offset + page_size]
             size -= page_size

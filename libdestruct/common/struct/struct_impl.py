@@ -51,6 +51,17 @@ class struct_impl(struct):
         for name, value in kwargs.items():
             getattr(self, name).value = value
 
+    def __getattribute__(self: struct_impl, name: str) -> object:
+        """Return the attribute, checking struct members first to avoid collisions with obj properties."""
+        # Check _members dict directly to avoid infinite recursion
+        try:
+            members = object.__getattribute__(self, "_members")
+            if name in members:
+                return members[name]
+        except AttributeError:
+            pass
+        return super().__getattribute__(name)
+
     def __new__(cls: struct_impl, *args: ..., **kwargs: ...) -> Self:
         """Create a new struct."""
         # Skip the __new__ method of the parent class
@@ -101,7 +112,6 @@ class struct_impl(struct):
                 resolved_type = inflater.inflater_for(annotation, owner=(self, reference_type._type_impl))
 
             result = resolved_type(resolver.relative_from_own(current_offset, 0))
-            setattr(self, name, result)
             self._members[name] = result
             current_offset += size_of(result)
 
@@ -127,7 +137,7 @@ class struct_impl(struct):
 
                 for attr in attrs:
                     if isinstance(attr, Field):
-                        attribute = cls._inflater.inflater_for((attr, annotation))(None)
+                        attribute = cls._inflater.inflater_for((attr, annotation), (None, cls))(None)
                     elif isinstance(attr, OffsetAttribute):
                         offset = attr.offset
                         if offset < size:
@@ -138,11 +148,11 @@ class struct_impl(struct):
 
                 # If we don't have a Field, we need to inflate the attribute as if we have no attributes
                 if not attribute:
-                    attribute = cls._inflater.inflater_for(annotation)
+                    attribute = cls._inflater.inflater_for(annotation, (None, cls))
             elif isinstance(annotation, Field):
-                attribute = cls._inflater.inflater_for((annotation, annotation.base_type))(None)
+                attribute = cls._inflater.inflater_for((annotation, annotation.base_type), (None, cls))(None)
             else:
-                attribute = cls._inflater.inflater_for(annotation)
+                attribute = cls._inflater.inflater_for(annotation, (None, cls))
 
             size += size_of(attribute)
 

@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.backing.resolver import Resolver
 
+T = TypeVar("T")
 
-class obj(ABC):
+class obj(ABC, Generic[T]):
     """A generic object, with reference to the backing memory view."""
 
     endianness: str = "little"
@@ -56,7 +57,10 @@ class obj(ABC):
     @classmethod
     def from_bytes(cls: type[obj], data: bytes) -> obj:
         """Deserialize the object from bytes."""
-        item = cls(data, 0)
+        from libdestruct.libdestruct import inflater
+
+        lib = inflater(data)
+        item = lib.inflate(cls, 0)
         item.freeze()
         return item
 

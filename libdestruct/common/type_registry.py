@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args, get_origin
 
 from libdestruct.common.field import Field
 
@@ -28,6 +28,9 @@ class TypeRegistry:
     type_handlers: dict[type, list[Callable[[type[obj]], type[obj] | None]]]
     """The handlers for generic object types, with basic inheritance support."""
 
+    generic_handlers: dict[type, list[Callable]]
+    """The handlers for subscripted generic types like ptr[T]."""
+
     instance_handlers: dict[
         type,
         list[
@@ -46,6 +49,7 @@ class TypeRegistry:
 
             cls._instance.mapping = {}
             cls._instance.type_handlers = {}
+            cls._instance.generic_handlers = {}
             cls._instance.instance_handlers = {}
 
         return cls._instance
@@ -64,6 +68,10 @@ class TypeRegistry:
         Returns:
             The inflater for the object type.
         """
+        origin = get_origin(item)
+        if origin is not None:
+            return self._inflater_for_generic(item, origin, get_args(item), owner)
+
         if isinstance(item, type):
             if item in self.mapping:
                 return self.mapping[item]
@@ -86,6 +94,20 @@ class TypeRegistry:
 
         raise ValueError(f"No applicable inflater found for {item}")
 
+    def _inflater_for_generic(
+        self: TypeRegistry,
+        item: object,
+        origin: type,
+        args: tuple,
+        owner: tuple[obj, type[obj]] | None,
+    ) -> Callable[[Resolver], obj]:
+        for handler in self.generic_handlers.get(origin, []):
+            result = handler(item, args, owner)
+            if result is not None:
+                return result
+
+        raise ValueError(f"No applicable inflater found for subscripted type {item}")
+
     def _inflater_for_instance(
         self: TypeRegistry,
         instance: Field | tuple[object, type[obj]],
@@ -106,7 +128,6 @@ class TypeRegistry:
             result = handler(item, annotation, owner)
 
             if result is not None:
-                self.mapping[base] = result
                 return result
 
         raise ValueError(f"No applicable inflater found for {item}")
@@ -145,6 +166,22 @@ class TypeRegistry:
             self.instance_handlers[parent] = []
 
         self.instance_handlers[parent].append(handler)
+
+    def register_generic_handler(
+        self: TypeRegistry,
+        origin: type,
+        handler: Callable,
+    ) -> None:
+        """Register a handler for a subscripted generic type.
+
+        Args:
+            origin: The origin type (e.g., ptr for ptr[T]).
+            handler: The handler for the subscripted type.
+        """
+        if origin not in self.generic_handlers:
+            self.generic_handlers[origin] = []
+
+        self.generic_handlers[origin].append(handler)
 
     def register_mapping(
         self: TypeRegistry,

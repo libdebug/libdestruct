@@ -34,6 +34,6 @@ class _ctypes_generic(obj):
     def to_bytes(self: _ctypes_generic) -> bytes:
         """Serialize the type to bytes."""
         if self._frozen:
-            return bytes(self._frozen_value)
+            return bytes(self.backing_type(self._frozen_value))
 
         return self.resolver.resolve(self.size, 0)

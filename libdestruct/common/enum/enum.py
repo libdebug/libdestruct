@@ -59,4 +59,4 @@ class enum(obj):
 
     def to_str(self: obj, indent: int = 0) -> str:
         """Return a string representation of the object."""
-        return f"{' ' * indent}{self.get()!r}"
+        return f"{self.get()!r}"

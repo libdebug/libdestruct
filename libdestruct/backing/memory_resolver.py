@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class MemoryResolver(Resolver):
     """A class that can resolve itself to a value in a referenced memory storage."""
 
-    def __init__(self: MemoryResolver, memory: MutableSequence, address: int | None) -> MemoryResolver:
+    def __init__(self: MemoryResolver, memory: MutableSequence, address: int | None) -> None:
         """Initializes a basic memory resolver."""
         self.memory = memory
         self.address = address
@@ -38,7 +38,7 @@ class MemoryResolver(Resolver):
         new_resolver.offset = address_offset
         return new_resolver
 
-    def absolute_from_own(self: Resolver, address: int) -> MemoryResolver:
+    def absolute_from_own(self: MemoryResolver, address: int) -> MemoryResolver:
         """Creates a resolver that has an absolute reference to an object, from the parent's view."""
         return MemoryResolver(self.memory, address)
 
@@ -47,7 +47,7 @@ class MemoryResolver(Resolver):
         address = self.resolve_address()
         return self.memory[address : address + size]
 
-    def modify(self: Resolver, size: int, _: int, value: bytes) -> None:
+    def modify(self: MemoryResolver, size: int, _: int, value: bytes) -> None:
         """Modifies itself in memory."""
         address = self.resolve_address()
         self.memory[address : address + size] = value

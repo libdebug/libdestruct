@@ -96,6 +96,11 @@ def ptr_to_type(ptr: c_ast.PtrDecl, parent: c_ast.Struct | None = None) -> type[
     if not isinstance(ptr, c_ast.PtrDecl):
         raise TypeError("Definition must be a pointer.")
 
+    # Handle nested pointers (e.g., int **pp) by recursively wrapping in ptr_to
+    if isinstance(ptr.type, c_ast.PtrDecl):
+        inner = ptr_to_type(ptr.type, parent)
+        return ptr_to(inner)
+
     if not isinstance(ptr.type, c_ast.TypeDecl):
         raise TypeError("Definition must be a type declaration.")
 

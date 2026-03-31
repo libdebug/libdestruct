@@ -26,8 +26,8 @@ class struct(obj):
     def __new__(cls: type[struct], *args: ..., **kwargs: ...) -> struct:  # noqa: PYI034
         """Create a new struct."""
         # Look for an inflater for this struct
-        inflater = TypeRegistry().inflater_for(cls)
-        return inflater(*args, **kwargs)
+        type_impl = TypeRegistry().inflater_for(cls)
+        return type_impl(*args, **kwargs)
 
     @classmethod
     def from_bytes(cls: type[struct], data: bytes) -> struct_impl:
