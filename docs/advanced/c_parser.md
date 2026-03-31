@@ -94,6 +94,40 @@ t = definition_to_type("""
 
 The last struct in the definition is returned. All previous structs are cached and available for forward references.
 
+## Typedefs
+
+The parser supports `typedef` declarations. Typedefs are resolved when used as field types in subsequent structs:
+
+```python
+t = definition_to_type("""
+    typedef unsigned int uint32_t;
+    struct S { uint32_t x; };
+""")
+```
+
+Struct typedefs, pointer typedefs, and chained typedefs all work:
+
+```python
+# Struct typedef
+t = definition_to_type("""
+    typedef struct { int x; int y; } Point;
+    struct S { Point p; };
+""")
+
+# Pointer typedef
+t = definition_to_type("""
+    typedef int *intptr;
+    struct S { intptr p; };
+""")
+
+# Chained typedef
+t = definition_to_type("""
+    typedef unsigned int u32;
+    typedef u32 mytype;
+    struct S { mytype x; };
+""")
+```
+
 ## Include Directives
 
 The parser supports `#include` directives by running the C preprocessor:
