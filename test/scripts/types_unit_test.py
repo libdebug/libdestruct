@@ -10,6 +10,7 @@ import struct as pystruct
 import unittest
 
 from libdestruct import c_int, c_long, c_str, c_uint, c_float, c_double, inflater, struct, ptr, ptr_to_self
+from libdestruct.backing.memory_resolver import MemoryResolver
 
 
 class ObjFromBytesTest(unittest.TestCase):
@@ -104,6 +105,74 @@ class PtrTest(unittest.TestCase):
         test = test_t.from_bytes(memory)
         s = str(test.p)
         self.assertIn("0x0", s)
+
+    def test_ptr_add(self):
+        """ptr + 1 returns new ptr at addr + sizeof(target)."""
+        # Array of 3 c_int values: [10, 20, 30]
+        memory = bytearray(8 + 12)
+        memory[0:8] = (8).to_bytes(8, "little")  # pointer to offset 8
+        memory[8:12] = (10).to_bytes(4, "little")
+        memory[12:16] = (20).to_bytes(4, "little")
+        memory[16:20] = (30).to_bytes(4, "little")
+
+        p = ptr(MemoryResolver(memory, 0), c_int)
+
+        p2 = p + 1
+        self.assertEqual(p2.unwrap().value, 20)
+
+        p3 = p + 2
+        self.assertEqual(p3.unwrap().value, 30)
+
+    def test_ptr_sub(self):
+        """ptr - 1 returns new ptr at addr - sizeof(target)."""
+        memory = bytearray(8 + 12)
+        memory[0:8] = (12).to_bytes(8, "little")  # pointer to second element
+        memory[8:12] = (10).to_bytes(4, "little")
+        memory[12:16] = (20).to_bytes(4, "little")
+        memory[16:20] = (30).to_bytes(4, "little")
+
+        p = ptr(MemoryResolver(memory, 0), c_int)
+
+        p2 = p - 1
+        self.assertEqual(p2.unwrap().value, 10)
+
+    def test_ptr_add_raw(self):
+        """Untyped ptr: ptr + n advances by n bytes."""
+        memory = bytearray(8 + 4)
+        memory[0:8] = (8).to_bytes(8, "little")  # pointer to offset 8
+        memory[8:12] = (0x44332211).to_bytes(4, "little")
+
+        p = ptr(MemoryResolver(memory, 0))
+        # No wrapper set, so element size is 1 byte
+
+        p2 = p + 2
+        self.assertEqual(p2.get(), 10)  # 8 + 2
+
+    def test_ptr_getitem(self):
+        """ptr[0] == unwrap(), ptr[1] == (ptr+1).unwrap()."""
+        memory = bytearray(8 + 12)
+        memory[0:8] = (8).to_bytes(8, "little")
+        memory[8:12] = (100).to_bytes(4, "little")
+        memory[12:16] = (200).to_bytes(4, "little")
+        memory[16:20] = (300).to_bytes(4, "little")
+
+        p = ptr(MemoryResolver(memory, 0), c_int)
+
+        self.assertEqual(p[0].value, 100)
+        self.assertEqual(p[1].value, 200)
+        self.assertEqual(p[2].value, 300)
+
+    def test_ptr_arithmetic_chain(self):
+        """(ptr + 2)[0] accesses element at index 2."""
+        memory = bytearray(8 + 12)
+        memory[0:8] = (8).to_bytes(8, "little")
+        memory[8:12] = (1).to_bytes(4, "little")
+        memory[12:16] = (2).to_bytes(4, "little")
+        memory[16:20] = (3).to_bytes(4, "little")
+
+        p = ptr(MemoryResolver(memory, 0), c_int)
+
+        self.assertEqual((p + 2)[0].value, 3)
 
 
 class FloatTest(unittest.TestCase):

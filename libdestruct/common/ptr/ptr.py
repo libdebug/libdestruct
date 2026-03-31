@@ -6,15 +6,41 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TypeVar
 
+from libdestruct.backing.resolver import Resolver
 from libdestruct.common.field import Field
 from libdestruct.common.obj import obj
-
-if TYPE_CHECKING:  # pragma: no cover
-    from libdestruct.backing.resolver import Resolver
+from libdestruct.common.utils import size_of
 
 T = TypeVar("T")
+
+
+class _ArithmeticResolver(Resolver):
+    """A resolver for pointers produced by arithmetic operations.
+
+    Stores a fixed address but delegates memory access to the original resolver.
+    """
+
+    def __init__(self: _ArithmeticResolver, original: Resolver, address: int) -> None:
+        self._original = original
+        self._address = address
+
+    def resolve_address(self: _ArithmeticResolver) -> int:
+        return self._address
+
+    def resolve(self: _ArithmeticResolver, size: int, _: int) -> bytes:
+        return self._address.to_bytes(size, "little")
+
+    def modify(self: _ArithmeticResolver, _size: int, _index: int, _value: bytes) -> None:
+        raise RuntimeError("Cannot modify a synthetic pointer.")
+
+    def absolute_from_own(self: _ArithmeticResolver, address: int) -> Resolver:
+        return self._original.absolute_from_own(address)
+
+    def relative_from_own(self: _ArithmeticResolver, address_offset: int, _index_offset: int) -> Resolver:
+        return self._original.absolute_from_own(self._address + address_offset)
+
 
 class ptr(obj[T]):
     """A pointer to an object in memory."""
@@ -95,6 +121,27 @@ class ptr(obj[T]):
             name = self.wrapper.__name__
 
         return f"{name}@0x{self.get():x}"
+
+    @property
+    def _element_size(self: ptr) -> int:
+        """Return the byte size of the pointed-to element."""
+        if self.wrapper is None:
+            return 1
+        return size_of(self.wrapper)
+
+    def __add__(self: ptr, n: int) -> ptr:
+        """Return a new pointer advanced by n elements."""
+        new_addr = self.get() + n * self._element_size
+        return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
+
+    def __sub__(self: ptr, n: int) -> ptr:
+        """Return a new pointer retreated by n elements."""
+        new_addr = self.get() - n * self._element_size
+        return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
+
+    def __getitem__(self: ptr, n: int) -> obj:
+        """Return the object at index n relative to this pointer."""
+        return (self + n).unwrap()
 
     def __str__(self: ptr) -> str:
         """Return a string representation of the pointer."""
