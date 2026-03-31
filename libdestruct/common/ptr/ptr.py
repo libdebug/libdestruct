@@ -57,6 +57,8 @@ class ptr(obj[T]):
         """
         super().__init__(resolver)
         self.wrapper = wrapper
+        self._cached_unwrap: obj | None = None
+        self._cache_valid: bool = False
 
     def get(self: ptr) -> int:
         """Return the value of the pointer."""
@@ -73,6 +75,12 @@ class ptr(obj[T]):
     def _set(self: ptr, value: int) -> None:
         """Set the value of the pointer to the given value."""
         self.resolver.modify(self.size, 0, value.to_bytes(self.size, self.endianness))
+        self.invalidate()
+
+    def invalidate(self: ptr) -> None:
+        """Clear the cached unwrap result."""
+        self._cached_unwrap = None
+        self._cache_valid = False
 
     def unwrap(self: ptr, length: int | None = None) -> obj:
         """Return the object pointed to by the pointer.
@@ -80,18 +88,24 @@ class ptr(obj[T]):
         Args:
             length: The length of the object in memory this points to.
         """
+        if self._cache_valid:
+            return self._cached_unwrap
+
         address = self.get()
 
         if self.wrapper:
             if length:
                 raise ValueError("Length is not supported when unwrapping a pointer to a wrapper object.")
 
-            return self.wrapper(self.resolver.absolute_from_own(address))
+            result = self.wrapper(self.resolver.absolute_from_own(address))
+        elif not length:
+            result = self.resolver.resolve(1, 0)
+        else:
+            result = self.resolver.resolve(length, 0)
 
-        if not length:
-            length = 1
-
-        return self.resolver.resolve(length, 0)
+        self._cached_unwrap = result
+        self._cache_valid = True
+        return result
 
     def try_unwrap(self: ptr, length: int | None = None) -> obj | None:
         """Return the object pointed to by the pointer, if it is valid.
@@ -99,6 +113,9 @@ class ptr(obj[T]):
         Args:
             length: The length of the object in memory this points to.
         """
+        if self._cache_valid:
+            return self._cached_unwrap
+
         address = self.get()
 
         try:

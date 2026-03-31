@@ -174,6 +174,89 @@ class PtrTest(unittest.TestCase):
 
         self.assertEqual((p + 2)[0].value, 3)
 
+    def test_unwrap_cached(self):
+        """Two unwrap() calls return the same object."""
+        class test_t(struct):
+            a: c_int
+            p: ptr = ptr_to_self()
+
+        memory = bytearray(12)
+        memory[0:4] = (42).to_bytes(4, "little")
+        memory[4:12] = (0).to_bytes(8, "little")
+
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+
+        r1 = test.p.unwrap()
+        r2 = test.p.unwrap()
+        self.assertIs(r1, r2)
+
+    def test_invalidate_clears_cache(self):
+        """invalidate() causes next unwrap() to return a new object."""
+        class test_t(struct):
+            a: c_int
+            p: ptr = ptr_to_self()
+
+        memory = bytearray(12)
+        memory[0:4] = (42).to_bytes(4, "little")
+        memory[4:12] = (0).to_bytes(8, "little")
+
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+
+        r1 = test.p.unwrap()
+        test.p.invalidate()
+        r2 = test.p.unwrap()
+        self.assertIsNot(r1, r2)
+
+    def test_cache_reflects_memory_change(self):
+        """After memory change + invalidate, unwrap gets new value."""
+        class test_t(struct):
+            a: c_int
+            p: ptr = ptr_to_self()
+
+        memory = bytearray(12)
+        memory[0:4] = (42).to_bytes(4, "little")
+        memory[4:12] = (0).to_bytes(8, "little")
+
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+
+        self.assertEqual(test.p.unwrap().a.value, 42)
+        memory[0:4] = (99).to_bytes(4, "little")
+        test.p.invalidate()
+        self.assertEqual(test.p.unwrap().a.value, 99)
+
+    def test_try_unwrap_cached(self):
+        """try_unwrap() also uses cache."""
+        class test_t(struct):
+            a: c_int
+            p: ptr = ptr_to_self()
+
+        memory = bytearray(12)
+        memory[0:4] = (42).to_bytes(4, "little")
+        memory[4:12] = (0).to_bytes(8, "little")
+
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+
+        r1 = test.p.try_unwrap()
+        r2 = test.p.try_unwrap()
+        self.assertIs(r1, r2)
+
+    def test_cache_invalidated_on_set(self):
+        """ptr.value = new_addr auto-invalidates the cache."""
+        memory = bytearray(8 + 8)  # ptr + two c_int slots
+        memory[0:8] = (8).to_bytes(8, "little")   # points to offset 8
+        memory[8:12] = (10).to_bytes(4, "little")
+        memory[12:16] = (20).to_bytes(4, "little")
+
+        p = ptr(MemoryResolver(memory, 0), c_int)
+
+        self.assertEqual(p.unwrap().value, 10)
+        p.value = 12  # now points to offset 12
+        self.assertEqual(p.unwrap().value, 20)
+
 
 class FloatTest(unittest.TestCase):
     """c_float and c_double types."""
