@@ -14,9 +14,36 @@ from typing import TYPE_CHECKING
 
 from pycparser import c_ast, c_parser
 
+from libdestruct.c.c_integer_types import c_char, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort
 from libdestruct.common.array.array_of import array_of
+from libdestruct.common.bitfield.bitfield_of import bitfield_of
 from libdestruct.common.ptr.ptr_factory import ptr_to, ptr_to_self
 from libdestruct.common.struct import struct
+
+# Mapping from ctypes types to libdestruct native integer types (needed for bitfields)
+_CTYPES_TO_NATIVE = {
+    ctypes.c_byte: c_char,
+    ctypes.c_char: c_char,
+    ctypes.c_ubyte: c_uchar,
+    ctypes.c_short: c_short,
+    ctypes.c_ushort: c_ushort,
+    ctypes.c_int: c_int,
+    ctypes.c_uint: c_uint,
+    ctypes.c_long: c_long,
+    ctypes.c_ulong: c_ulong,
+    ctypes.c_longlong: c_long,
+    ctypes.c_ulonglong: c_ulong,
+    ctypes.c_int8: c_char,
+    ctypes.c_int16: c_short,
+    ctypes.c_int32: c_int,
+    ctypes.c_int64: c_long,
+    ctypes.c_uint8: c_uchar,
+    ctypes.c_uint16: c_ushort,
+    ctypes.c_uint32: c_uint,
+    ctypes.c_uint64: c_ulong,
+    ctypes.c_size_t: c_ulong,
+    ctypes.c_ssize_t: c_long,
+}
 
 if TYPE_CHECKING:
     from libdestruct.common.obj import obj
@@ -81,14 +108,25 @@ def struct_to_type(struct_node: c_ast.Struct) -> type[struct]:
     elif not struct_node.decls:
         raise ValueError("Struct must have fields.")
 
+    class_dict = {}
+
     for decl in struct_node.decls:
         name = decl.name
         typ = type_decl_to_type(decl.type, struct_node)
         fields[name] = typ
 
+        # Handle bitfields: decl.bitsize is set when the declaration has ": N"
+        if decl.bitsize is not None:
+            bit_width = int(decl.bitsize.value)
+            # Convert ctypes types to native libdestruct types for bitfield backing
+            native_type = _CTYPES_TO_NATIVE.get(typ, typ)
+            class_dict[name] = bitfield_of(native_type, bit_width)
+            fields[name] = native_type
+
     type_name = struct_node.name if struct_node.name else "anon_struct"
 
-    return type(type_name, (struct,), {"__annotations__": fields})
+    class_dict["__annotations__"] = fields
+    return type(type_name, (struct,), class_dict)
 
 
 def ptr_to_type(ptr: c_ast.PtrDecl, parent: c_ast.Struct | None = None) -> type[obj]:

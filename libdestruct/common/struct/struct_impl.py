@@ -11,6 +11,8 @@ from typing_extensions import Self
 from libdestruct.backing.fake_resolver import FakeResolver
 from libdestruct.backing.resolver import Resolver
 from libdestruct.common.attributes.offset_attribute import OffsetAttribute
+from libdestruct.common.bitfield.bitfield_field import BitfieldField
+from libdestruct.common.bitfield.bitfield_tracker import BitfieldTracker
 from libdestruct.common.field import Field
 from libdestruct.common.obj import obj
 from libdestruct.common.struct import struct
@@ -75,87 +77,121 @@ class struct_impl(struct):
         reference_type: type,
     ) -> None:
         current_offset = 0
+        bf_tracker = BitfieldTracker()
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
-            if name in reference.__dict__:
-                # Field associated with the annotation
-                attrs = getattr(reference, name)
+            resolved_type, bitfield_field, explicit_offset = self._resolve_field(
+                name, annotation, reference, inflater, reference_type,
+            )
 
-                # If attrs is not a tuple, we need to convert it to a tuple
-                if not isinstance(attrs, tuple):
-                    attrs = (attrs,)
+            if explicit_offset is not None:
+                if explicit_offset < current_offset:
+                    raise ValueError("Offset must be greater than the current size.")
+                current_offset = explicit_offset
 
-                # Assert that in all attributes, there is only one Field
-                if sum(isinstance(attr, Field) for attr in attrs) > 1:
-                    raise ValueError("Only one Field is allowed per attribute.")
-
-                resolved_type = None
-
-                for attr in attrs:
-                    if isinstance(attr, Field):
-                        resolved_type = inflater.inflater_for(
-                            (attr, annotation),
-                            owner=(self, reference_type._type_impl),
-                        )
-                    elif isinstance(attr, OffsetAttribute):
-                        offset = attr.offset
-                        if offset < current_offset:
-                            raise ValueError("Offset must be greater than the current size.")
-                        current_offset = offset
-                    else:
-                        raise TypeError("Only Field and OffsetAttribute are allowed in attributes.")
-
-                # If we don't have a Field, we need to inflate the type as if we have no attributes
-                if not resolved_type:
-                    resolved_type = inflater.inflater_for(annotation, owner=(self, reference_type._type_impl))
+            if bitfield_field:
+                result, offset_delta = bf_tracker.create_bitfield(
+                    bitfield_field, inflater, resolver, current_offset,
+                )
+                current_offset += offset_delta
             else:
-                resolved_type = inflater.inflater_for(annotation, owner=(self, reference_type._type_impl))
+                current_offset += bf_tracker.flush()
+                result = resolved_type(resolver.relative_from_own(current_offset, 0))
+                current_offset += size_of(result)
 
-            result = resolved_type(resolver.relative_from_own(current_offset, 0))
             self._members[name] = result
-            current_offset += size_of(result)
+
+        current_offset += bf_tracker.flush()
+
+    def _resolve_field(
+        self: struct_impl,
+        name: str,
+        annotation: type,
+        reference: type,
+        inflater: TypeRegistry,
+        reference_type: type,
+    ) -> tuple[object | None, BitfieldField | None, int | None]:
+        """Resolve a single struct field annotation to its inflater or BitfieldField.
+
+        Returns:
+            A tuple of (resolved_inflater, bitfield_field, explicit_offset).
+            Either resolved_inflater or bitfield_field will be non-None (not both).
+            explicit_offset is set when an OffsetAttribute is present.
+        """
+        if name not in reference.__dict__:
+            return inflater.inflater_for(annotation, owner=(self, reference_type._type_impl)), None, None
+
+        attrs = getattr(reference, name)
+        if not isinstance(attrs, tuple):
+            attrs = (attrs,)
+
+        if sum(isinstance(attr, Field) for attr in attrs) > 1:
+            raise ValueError("Only one Field is allowed per attribute.")
+
+        resolved_type = None
+        bitfield_field = None
+        explicit_offset = None
+
+        for attr in attrs:
+            if isinstance(attr, BitfieldField):
+                bitfield_field = attr
+            elif isinstance(attr, Field):
+                resolved_type = inflater.inflater_for(
+                    (attr, annotation), owner=(self, reference_type._type_impl),
+                )
+            elif isinstance(attr, OffsetAttribute):
+                explicit_offset = attr.offset
+            else:
+                raise TypeError("Only Field, BitfieldField, and OffsetAttribute are allowed in attributes.")
+
+        if not resolved_type and not bitfield_field:
+            resolved_type = inflater.inflater_for(annotation, owner=(self, reference_type._type_impl))
+
+        return resolved_type, bitfield_field, explicit_offset
 
     @classmethod
     def compute_own_size(cls: type[struct_impl], reference_type: type) -> None:
         """Compute the size of the struct."""
         size = 0
+        bf_tracker = BitfieldTracker()
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
-            if name in reference.__dict__:
-                # Field associated with the annotation
-                attrs = getattr(reference, name)
+            bitfield_field = None
+            attribute = None
 
-                # If attrs is not a tuple, we need to convert it to a tuple
+            if name in reference.__dict__:
+                attrs = getattr(reference, name)
                 if not isinstance(attrs, tuple):
                     attrs = (attrs,)
 
-                # Assert that in all attributes, there is only one Field
                 if sum(isinstance(attr, Field) for attr in attrs) > 1:
                     raise ValueError("Only one Field is allowed per attribute.")
 
-                attribute = None
-
                 for attr in attrs:
-                    if isinstance(attr, Field):
+                    if isinstance(attr, BitfieldField):
+                        bitfield_field = attr
+                    elif isinstance(attr, Field):
                         attribute = cls._inflater.inflater_for((attr, annotation), (None, cls))(None)
                     elif isinstance(attr, OffsetAttribute):
                         offset = attr.offset
                         if offset < size:
                             raise ValueError("Offset must be greater than the current size.")
                         size = offset
-                    else:
-                        raise TypeError("Only Field and OffsetAttribute are allowed in attributes.")
 
-                # If we don't have a Field, we need to inflate the attribute as if we have no attributes
-                if not attribute:
+                if not attribute and not bitfield_field:
                     attribute = cls._inflater.inflater_for(annotation, (None, cls))
             elif isinstance(annotation, Field):
                 attribute = cls._inflater.inflater_for((annotation, annotation.base_type), (None, cls))(None)
             else:
                 attribute = cls._inflater.inflater_for(annotation, (None, cls))
 
-            size += size_of(attribute)
+            if bitfield_field:
+                size += bf_tracker.compute_size(bitfield_field)
+            else:
+                size += bf_tracker.flush()
+                size += size_of(attribute)
 
+        size += bf_tracker.flush()
         cls.size = size
 
     @property
