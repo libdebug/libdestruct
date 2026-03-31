@@ -4,9 +4,11 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
+import struct as pystruct
 import unittest
 
 from libdestruct.c.struct_parser import definition_to_type
+from libdestruct import inflater
 
 
 class StructParserTest(unittest.TestCase):
@@ -37,6 +39,53 @@ class StructParserTest(unittest.TestCase):
         """)
         self.assertIn("a", t.__annotations__)
         self.assertIn("b", t.__annotations__)
+
+
+class TypedefTest(unittest.TestCase):
+    """Typedef support in C struct parser."""
+
+    def test_simple_typedef(self):
+        t = definition_to_type("""
+            typedef unsigned int uint32_t;
+            struct S { uint32_t x; };
+        """)
+        self.assertIn("x", t.__annotations__)
+
+    def test_typedef_of_struct(self):
+        t = definition_to_type("""
+            typedef struct { int x; } Point;
+            struct S { Point p; };
+        """)
+        self.assertIn("p", t.__annotations__)
+
+    def test_typedef_of_pointer(self):
+        t = definition_to_type("""
+            typedef int *intptr;
+            struct S { intptr p; };
+        """)
+        self.assertIn("p", t.__annotations__)
+
+    def test_typedef_chain(self):
+        t = definition_to_type("""
+            typedef unsigned int u32;
+            typedef u32 mytype;
+            struct S { mytype x; };
+        """)
+        self.assertIn("x", t.__annotations__)
+
+    def test_typedef_inflate_and_read(self):
+        t = definition_to_type("""
+            typedef unsigned int uint32_t;
+            struct S { uint32_t x; int y; };
+        """)
+        memory = bytearray(8)
+        memory[0:4] = pystruct.pack("<I", 0xDEADBEEF)
+        memory[4:8] = pystruct.pack("<i", -42)
+
+        lib = inflater(memory)
+        s = lib.inflate(t, 0)
+        self.assertEqual(s.x.value, 0xDEADBEEF)
+        self.assertEqual(s.y.value, -42)
 
 
 if __name__ == "__main__":

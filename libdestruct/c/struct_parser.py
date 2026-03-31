@@ -196,11 +196,16 @@ def typedef_to_pair(typedef: c_ast.Typedef) -> tuple[str, type[obj]]:
     if not isinstance(typedef, c_ast.Typedef):
         raise TypeError("Definition must be a typedef.")
 
-    if not isinstance(typedef.type, c_ast.TypeDecl):
-        raise TypeError("Definition must be a type declaration.")
-
     name = "".join(typedef.name)
-    definition = type_decl_to_type(typedef.type)
+
+    if isinstance(typedef.type, c_ast.PtrDecl):
+        definition = ptr_to_type(typedef.type)
+    elif isinstance(typedef.type, c_ast.ArrayDecl):
+        definition = arr_to_type(typedef.type)
+    elif isinstance(typedef.type, c_ast.TypeDecl):
+        definition = type_decl_to_type(typedef.type)
+    else:
+        raise TypeError("Unsupported typedef target type.")
 
     return name, definition
 
