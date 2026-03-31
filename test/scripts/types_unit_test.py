@@ -513,5 +513,61 @@ class HexdumpTest(unittest.TestCase):
         self.assertGreater(len(lines), 1)
 
 
+class ComparisonTest(unittest.TestCase):
+    """Comparison operators on primitive types."""
+
+    def test_int_gt_python_int(self):
+        x = c_int.from_bytes((10).to_bytes(4, "little"))
+        self.assertTrue(x > 5)
+        self.assertFalse(x > 10)
+
+    def test_int_lt_python_int(self):
+        x = c_int.from_bytes((3).to_bytes(4, "little"))
+        self.assertTrue(x < 5)
+        self.assertFalse(x < 3)
+
+    def test_int_ge_le(self):
+        x = c_int.from_bytes((7).to_bytes(4, "little"))
+        self.assertTrue(x >= 7)
+        self.assertTrue(x >= 6)
+        self.assertFalse(x >= 8)
+        self.assertTrue(x <= 7)
+        self.assertTrue(x <= 8)
+        self.assertFalse(x <= 6)
+
+    def test_int_eq_python_int(self):
+        x = c_int.from_bytes((42).to_bytes(4, "little"))
+        self.assertTrue(x == 42)
+        self.assertFalse(x == 43)
+
+    def test_int_ne_python_int(self):
+        x = c_int.from_bytes((42).to_bytes(4, "little"))
+        self.assertTrue(x != 43)
+        self.assertFalse(x != 42)
+
+    def test_float_gt_python_float(self):
+        x = c_float.from_bytes(pystruct.pack("<f", 3.14))
+        self.assertTrue(x > 3.0)
+        self.assertFalse(x > 4.0)
+
+    def test_float_eq_python_float(self):
+        x = c_double.from_bytes(pystruct.pack("<d", 2.5))
+        self.assertTrue(x == 2.5)
+        self.assertFalse(x == 2.6)
+
+    def test_obj_vs_obj(self):
+        a = c_int.from_bytes((10).to_bytes(4, "little"))
+        b = c_int.from_bytes((20).to_bytes(4, "little"))
+        self.assertTrue(a < b)
+        self.assertTrue(b > a)
+        self.assertTrue(a != b)
+        self.assertFalse(a == b)
+
+    def test_comparison_returns_not_implemented_for_incompatible(self):
+        x = c_int.from_bytes((1).to_bytes(4, "little"))
+        self.assertFalse(x == "hello")
+        self.assertTrue(x != "hello")
+
+
 if __name__ == "__main__":
     unittest.main()

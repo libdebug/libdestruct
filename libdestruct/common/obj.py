@@ -130,12 +130,56 @@ class obj(ABC, Generic[T]):
         """Return a string representation of the object."""
         return f"{self.__class__.__name__}({self.get()})"
 
-    def __eq__(self: obj, value: object) -> bool:
-        """Return whether the object is equal to the given value."""
-        if not isinstance(value, obj):
-            return False
+    def _compare_value(self: obj, other: object) -> tuple[object, object] | None:
+        """Extract comparable values from self and other, or None if incompatible."""
+        self_val = self.value
+        if isinstance(other, obj):
+            return self_val, other.value
+        if isinstance(other, int | float):
+            return self_val, other
+        return None
 
-        return self.get() == value.get()
+    def __eq__(self: obj, other: object) -> bool:
+        """Return whether the object is equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] == pair[1]
+
+    def __ne__(self: obj, other: object) -> bool:
+        """Return whether the object is not equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] != pair[1]
+
+    def __lt__(self: obj, other: object) -> bool:
+        """Return whether this object is less than the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] < pair[1]
+
+    def __le__(self: obj, other: object) -> bool:
+        """Return whether this object is less than or equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] <= pair[1]
+
+    def __gt__(self: obj, other: object) -> bool:
+        """Return whether this object is greater than the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] > pair[1]
+
+    def __ge__(self: obj, other: object) -> bool:
+        """Return whether this object is greater than or equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] >= pair[1]
 
     def hexdump(self: obj) -> str:
         """Return a hex dump of this object's bytes."""
