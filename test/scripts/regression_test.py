@@ -189,5 +189,56 @@ class StructParserTest(unittest.TestCase):
         self.assertIn("pp", struct_type.__annotations__)
 
 
+class BytearrayMemoryBytesTest(unittest.TestCase):
+    """Issue #6: __bytes__ fails on Python 3.13+ when backing memory is bytearray."""
+
+    def test_resolve_returns_bytes(self):
+        from libdestruct.backing.memory_resolver import MemoryResolver
+
+        # MemoryResolver.resolve() should always return bytes, even when
+        # the backing memory is a bytearray
+        resolver = MemoryResolver(bytearray(b"\x01\x02\x03\x04"), 0)
+        result = resolver.resolve(4, 0)
+        self.assertIsInstance(result, bytes)
+
+    def test_bytes_on_bytearray_backed_c_int(self):
+        lib = inflater(bytearray(b"\x2a\x00\x00\x00"))
+        obj = lib.inflate(c_int, 0)
+
+        result = bytes(obj)
+        self.assertIsInstance(result, bytes)
+        self.assertEqual(len(result), 4)
+
+    def test_bytes_on_bytearray_backed_c_str(self):
+        lib = inflater(bytearray(b"Hello\x00"))
+        s = lib.inflate(c_str, 0)
+
+        result = bytes(s)
+        self.assertIsInstance(result, bytes)
+
+    def test_bytes_on_bytearray_backed_ptr(self):
+        class test_t(struct):
+            p: ptr = ptr_to_self()
+
+        memory = bytearray(b"\x00" * 8)
+        test = test_t.from_bytes(memory)
+
+        result = test.p.to_bytes()
+        self.assertIsInstance(result, bytes)
+        self.assertEqual(len(result), 8)
+
+    def test_c_str_get_returns_bytes(self):
+        lib = inflater(bytearray(b"Hello\x00"))
+        s = lib.inflate(c_str, 0)
+
+        # get() without index returns the full string
+        result = s.get()
+        self.assertIsInstance(result, bytes)
+
+        # get() with index returns a single byte
+        result = s.get(0)
+        self.assertIsInstance(result, bytes)
+
+
 if __name__ == "__main__":
     unittest.main()
