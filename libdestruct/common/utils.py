@@ -25,23 +25,33 @@ def is_field_bound_method(item: obj) -> bool:
 
 
 def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
-    """Return the size of an object, from an obj or it's inflater."""
-    if hasattr(item_or_inflater.__class__, "size"):
-        # This has the priority over the size of the object itself
-        # as we might be dealing with a struct object
-        # that defines an attribute named "size"
-        return item_or_inflater.__class__.size
-    if hasattr(item_or_inflater, "size"):
-        return item_or_inflater.size
-
-    # Check if item is the bound method of a Field
-    if is_field_bound_method(item_or_inflater):
-        field_object = item_or_inflater.__self__
-        return field_object.get_size()
-
-    # Check if item is directly a Field instance
+    """Return the size in bytes of a type, instance, or field descriptor."""
+    # Field instances (e.g. array_of, ptr_to) — must come before .size check
     if isinstance(item_or_inflater, Field):
         return item_or_inflater.get_size()
+    if is_field_bound_method(item_or_inflater):
+        return item_or_inflater.__self__.get_size()
+
+    # Struct types: size is on the inflated _type_impl class
+    if isinstance(item_or_inflater, type) and hasattr(item_or_inflater, "_type_impl"):
+        return item_or_inflater._type_impl.size
+
+    # Struct types not yet inflated: trigger inflation to compute size
+    if isinstance(item_or_inflater, type) and not hasattr(item_or_inflater, "size"):
+        from libdestruct.common.type_registry import TypeRegistry
+
+        impl = TypeRegistry().inflater_for(item_or_inflater)
+        if hasattr(impl, "size") and isinstance(impl.size, int):
+            return impl.size
+
+    # Check class-level size (works for both types and instances)
+    if isinstance(item_or_inflater, type):
+        if hasattr(item_or_inflater, "size") and isinstance(item_or_inflater.size, int):
+            return item_or_inflater.size
+    elif hasattr(item_or_inflater.__class__, "size"):
+        return item_or_inflater.__class__.size
+    elif hasattr(item_or_inflater, "size"):
+        return item_or_inflater.size
 
     raise ValueError(f"Cannot determine the size of {item_or_inflater}")
 

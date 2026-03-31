@@ -9,7 +9,7 @@ import math
 import struct as pystruct
 import unittest
 
-from libdestruct import c_int, c_long, c_str, c_uint, c_float, c_double, inflater, struct, ptr, ptr_to_self
+from libdestruct import c_int, c_long, c_str, c_uint, c_float, c_double, inflater, struct, ptr, ptr_to_self, size_of, array_of
 from libdestruct.backing.memory_resolver import MemoryResolver
 
 
@@ -107,7 +107,7 @@ class PtrTest(unittest.TestCase):
         self.assertIn("0x0", s)
 
     def test_ptr_add(self):
-        """ptr + 1 returns new ptr at addr + sizeof(target)."""
+        """ptr + 1 returns new ptr at addr + size_of(target)."""
         # Array of 3 c_int values: [10, 20, 30]
         memory = bytearray(8 + 12)
         memory[0:8] = (8).to_bytes(8, "little")  # pointer to offset 8
@@ -124,7 +124,7 @@ class PtrTest(unittest.TestCase):
         self.assertEqual(p3.unwrap().value, 30)
 
     def test_ptr_sub(self):
-        """ptr - 1 returns new ptr at addr - sizeof(target)."""
+        """ptr - 1 returns new ptr at addr - size_of(target)."""
         memory = bytearray(8 + 12)
         memory[0:8] = (12).to_bytes(8, "little")  # pointer to second element
         memory[8:12] = (10).to_bytes(4, "little")
@@ -311,6 +311,46 @@ class CStrTest(unittest.TestCase):
 
         s[1] = b"a"
         self.assertEqual(s.get(1), b"a")
+
+
+class SizeofTest(unittest.TestCase):
+    """size_of() function."""
+
+    def test_size_of_c_int(self):
+        self.assertEqual(size_of(c_int), 4)
+
+    def test_size_of_c_long(self):
+        self.assertEqual(size_of(c_long), 8)
+
+    def test_size_of_c_float(self):
+        self.assertEqual(size_of(c_float), 4)
+
+    def test_size_of_ptr(self):
+        self.assertEqual(size_of(ptr), 8)
+
+    def test_size_of_struct(self):
+        class two_ints(struct):
+            a: c_int
+            b: c_int
+
+        self.assertEqual(size_of(two_ints), 8)
+
+    def test_size_of_instance(self):
+        obj = c_int.from_bytes((42).to_bytes(4, "little"))
+        self.assertEqual(size_of(obj), 4)
+
+    def test_size_of_array_field(self):
+        self.assertEqual(size_of(array_of(c_int, 10)), 40)
+
+    def test_size_of_nested_struct(self):
+        class inner(struct):
+            x: c_int
+
+        class outer(struct):
+            a: inner
+            b: c_int
+
+        self.assertEqual(size_of(outer), 8)
 
 
 if __name__ == "__main__":
