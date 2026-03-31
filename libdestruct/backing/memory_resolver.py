@@ -45,7 +45,7 @@ class MemoryResolver(Resolver):
     def resolve(self: MemoryResolver, size: int, _: int) -> bytes:
         """Resolves itself, providing the bytes it references for the specified size and index."""
         address = self.resolve_address()
-        return self.memory[address : address + size]
+        return bytes(self.memory[address : address + size])
 
     def modify(self: MemoryResolver, size: int, _: int, value: bytes) -> None:
         """Modifies itself in memory."""
