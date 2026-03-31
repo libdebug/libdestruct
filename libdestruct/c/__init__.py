@@ -4,10 +4,14 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
+from libdestruct.c.c_float_types import c_double, c_float
 from libdestruct.c.c_integer_types import c_char, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort
 from libdestruct.c.c_str import c_str
 
-__all__ = ["c_char", "c_int", "c_long", "c_short", "c_str", "c_uchar", "c_uint", "c_ulong", "c_ushort"]
+__all__ = [
+    "c_char", "c_double", "c_float", "c_int", "c_long", "c_short",
+    "c_str", "c_uchar", "c_uint", "c_ulong", "c_ushort",
+]
 
 import libdestruct.c.base_type_inflater
 import libdestruct.c.ctypes_generic_field  # noqa: F401

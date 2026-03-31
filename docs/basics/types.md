@@ -11,6 +11,8 @@ libdestruct provides Python equivalents for common C primitive types. All types 
 | `c_long` | `long` / `int64_t` | 8 | Yes |
 | `c_ulong` | `unsigned long` / `uint64_t` | 8 | No |
 | `c_char` | `char` | 1 | — |
+| `c_float` | `float` | 4 | — |
+| `c_double` | `double` | 8 | — |
 | `c_str` | `char[]` | variable | — |
 
 ## Usage
@@ -55,6 +57,29 @@ from libdestruct import c_int
 x = c_int.from_bytes(b"\x2a\x00\x00\x00")
 print(x.value)  # 42
 ```
+
+## Floating-Point Types
+
+`c_float` and `c_double` represent IEEE 754 single-precision (32-bit) and double-precision (64-bit) floating-point numbers.
+
+```python
+import struct as pystruct
+from libdestruct import c_float, c_double, inflater
+
+# Read a float from bytes
+data = pystruct.pack("<f", 3.14)
+f = c_float.from_bytes(data)
+print(f.value)   # 3.140000104904175
+print(float(f))  # same — c_float supports the __float__ protocol
+
+# Write a double to mutable memory
+memory = bytearray(8)
+lib = inflater(memory)
+d = lib.inflate(c_double, 0)
+d.value = 2.718281828
+```
+
+Both types support special values like `NaN`, `inf`, and `-inf`, and respect endianness settings.
 
 ## Strings
 

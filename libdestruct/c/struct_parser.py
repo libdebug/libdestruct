@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from pycparser import c_ast, c_parser
 
+from libdestruct.c.c_float_types import c_double, c_float
 from libdestruct.c.c_integer_types import c_char, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort
 from libdestruct.common.array.array_of import array_of
 from libdestruct.common.bitfield.bitfield_of import bitfield_of
@@ -252,6 +253,11 @@ def identifier_to_type(identifier: c_ast.IdentifierType) -> type[obj]:
         raise TypeError("Definition must be an identifier.")
 
     identifier_name = "".join(identifier.names)
+
+    # Native float/double types (before ctypes fallback, so we get libdestruct types)
+    native_float_types = {"float": c_float, "double": c_double}
+    if identifier_name in native_float_types:
+        return native_float_types[identifier_name]
 
     ctypes_name = "c_" + identifier_name
 
