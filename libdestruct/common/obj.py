@@ -9,6 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+from libdestruct.common.hexdump import format_hexdump
+
 if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.backing.resolver import Resolver
 
@@ -134,6 +136,11 @@ class obj(ABC, Generic[T]):
             return False
 
         return self.get() == value.get()
+
+    def hexdump(self: obj) -> str:
+        """Return a hex dump of this object's bytes."""
+        address = self.address if not self._frozen else 0
+        return format_hexdump(self.to_bytes(), address)
 
     def __bytes__(self: obj) -> bytes:
         """Return the serialized object."""

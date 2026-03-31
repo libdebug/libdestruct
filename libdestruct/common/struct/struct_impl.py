@@ -14,6 +14,7 @@ from libdestruct.common.attributes.offset_attribute import OffsetAttribute
 from libdestruct.common.bitfield.bitfield_field import BitfieldField
 from libdestruct.common.bitfield.bitfield_tracker import BitfieldTracker
 from libdestruct.common.field import Field
+from libdestruct.common.hexdump import format_hexdump
 from libdestruct.common.obj import obj
 from libdestruct.common.struct import struct
 from libdestruct.common.type_registry import TypeRegistry
@@ -209,6 +210,17 @@ class struct_impl(struct):
     def to_bytes(self: struct_impl) -> bytes:
         """Return the serialized representation of the struct."""
         return b"".join(member.to_bytes() for member in self._members.values())
+
+    def hexdump(self: struct_impl) -> str:
+        """Return a hex dump of this struct's bytes with field annotations."""
+        annotations = {}
+        offset = 0
+        for name, member in self._members.items():
+            annotations[offset] = name
+            offset += len(member.to_bytes())
+
+        address = struct_impl.address.fget(self) if not self._frozen else 0
+        return format_hexdump(self.to_bytes(), address, annotations)
 
     def _set(self: struct_impl, _: str) -> None:
         """Set the value of the struct to the given value."""

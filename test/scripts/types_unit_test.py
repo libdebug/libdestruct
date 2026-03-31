@@ -353,5 +353,58 @@ class SizeofTest(unittest.TestCase):
         self.assertEqual(size_of(outer), 8)
 
 
+class HexdumpTest(unittest.TestCase):
+    """Pretty hex dump."""
+
+    def test_hexdump_primitive(self):
+        data = (0x2a).to_bytes(4, "little")
+        obj = c_int.from_bytes(data)
+        result = obj.hexdump()
+        self.assertIn("2a 00 00 00", result)
+
+    def test_hexdump_struct(self):
+        class test_t(struct):
+            a: c_int
+            b: c_int
+
+        memory = b""
+        memory += (1).to_bytes(4, "little")
+        memory += (2).to_bytes(4, "little")
+        test = test_t.from_bytes(memory)
+        result = test.hexdump()
+        # Should contain field name annotations
+        self.assertIn("a", result)
+        self.assertIn("b", result)
+
+    def test_hexdump_returns_string(self):
+        obj = c_int.from_bytes((0).to_bytes(4, "little"))
+        self.assertIsInstance(obj.hexdump(), str)
+
+    def test_hexdump_offset_column(self):
+        obj = c_int.from_bytes((0).to_bytes(4, "little"))
+        result = obj.hexdump()
+        self.assertIn("00000000", result)
+
+    def test_hexdump_ascii_column(self):
+        memory = bytearray(b"ABCD")
+        lib = inflater(memory)
+        obj = lib.inflate(c_int, 0)
+        result = obj.hexdump()
+        self.assertIn("ABCD", result)
+
+    def test_hexdump_multiline(self):
+        """More than 16 bytes should produce multiple lines."""
+        class big_t(struct):
+            a: c_long
+            b: c_long
+            c: c_long
+
+        memory = b"\x00" * 24
+        test = big_t.from_bytes(memory)
+        result = test.hexdump()
+        lines = [l for l in result.strip().split("\n") if l.strip()]
+        self.assertGreater(len(lines), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
