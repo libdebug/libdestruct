@@ -138,6 +138,30 @@ p_raw = ptr(MemoryResolver(memory, 0))  # no wrapper
 p2 = p_raw + 4   # advances by 4 bytes
 ```
 
+## Caching
+
+Pointer dereferencing is cached — repeated calls to `unwrap()` or `try_unwrap()` return the same object without re-inflating:
+
+```python
+r1 = node.next.unwrap()
+r2 = node.next.unwrap()
+assert r1 is r2  # same object
+```
+
+If the underlying memory changes, call `invalidate()` to clear the cache:
+
+```python
+# Memory was modified externally
+node.next.invalidate()
+r3 = node.next.unwrap()  # re-inflated from updated memory
+```
+
+Setting the pointer's value automatically invalidates the cache:
+
+```python
+node.next.value = new_address  # cache cleared automatically
+```
+
 ## Pointer String Representation
 
 ```python

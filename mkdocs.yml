@@ -65,4 +65,5 @@ nav:
     - Freeze, Diff & Reset: advanced/freeze_diff.md
     - C Struct Parser: advanced/c_parser.md
     - Forward References: advanced/forward_refs.md
+    - Hex Dump: advanced/hexdump.md
     - Field Offsets: advanced/offset.md
