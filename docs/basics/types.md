@@ -58,6 +58,33 @@ x = c_int.from_bytes(b"\x2a\x00\x00\x00")
 print(x.value)  # 42
 ```
 
+## size_of()
+
+The `size_of()` function returns the size in bytes of any type, instance, or field descriptor:
+
+```python
+from libdestruct import size_of, c_int, c_long, c_float, ptr, struct, array_of
+
+size_of(c_int)    # 4
+size_of(c_long)   # 8
+size_of(c_float)  # 4
+size_of(ptr)      # 8
+
+# Works with struct types
+class point_t(struct):
+    x: c_int
+    y: c_int
+
+size_of(point_t)  # 8
+
+# Works with instances
+x = c_int.from_bytes(b"\x00\x00\x00\x00")
+size_of(x)        # 4
+
+# Works with array field descriptors
+size_of(array_of(c_int, 10))  # 40
+```
+
 ## Floating-Point Types
 
 `c_float` and `c_double` represent IEEE 754 single-precision (32-bit) and double-precision (64-bit) floating-point numbers.
