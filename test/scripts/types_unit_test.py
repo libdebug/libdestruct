@@ -9,7 +9,11 @@ import math
 import struct as pystruct
 import unittest
 
-from libdestruct import c_int, c_long, c_str, c_uint, c_float, c_double, inflater, struct, ptr, ptr_to_self, size_of, array_of
+from libdestruct import (
+    c_char, c_double, c_float, c_int, c_long, c_short,
+    c_str, c_uchar, c_uint, c_ulong, c_ushort,
+    inflater, struct, ptr, ptr_to_self, size_of, array_of,
+)
 from libdestruct.backing.memory_resolver import MemoryResolver
 
 
@@ -25,6 +29,26 @@ class ObjFromBytesTest(unittest.TestCase):
         data = (123456789).to_bytes(8, "little")
         obj = c_long.from_bytes(data)
         self.assertEqual(obj.value, 123456789)
+
+    def test_c_char_from_bytes(self):
+        data = (65).to_bytes(1, "little")
+        obj = c_char.from_bytes(data)
+        self.assertEqual(obj.value, 65)
+
+    def test_c_uchar_from_bytes(self):
+        data = (200).to_bytes(1, "little")
+        obj = c_uchar.from_bytes(data)
+        self.assertEqual(obj.value, 200)
+
+    def test_c_short_from_bytes(self):
+        data = (-1234).to_bytes(2, "little", signed=True)
+        obj = c_short.from_bytes(data)
+        self.assertEqual(obj.value, -1234)
+
+    def test_c_ushort_from_bytes(self):
+        data = (60000).to_bytes(2, "little")
+        obj = c_ushort.from_bytes(data)
+        self.assertEqual(obj.value, 60000)
 
     def test_c_uint_from_bytes(self):
         data = (0xDEADBEEF).to_bytes(4, "little")

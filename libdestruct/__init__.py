@@ -12,7 +12,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from libdestruct.backing.resolver import Resolver
-from libdestruct.c import c_double, c_float, c_int, c_long, c_str, c_uint, c_ulong
+from libdestruct.c import c_char, c_double, c_float, c_int, c_long, c_short, c_str, c_uchar, c_uint, c_ulong, c_ushort
 from libdestruct.common.array import array, array_of
 from libdestruct.common.attributes import offset
 from libdestruct.common.bitfield import bitfield_of
@@ -27,13 +27,17 @@ __all__ = [
     "array",
     "array_of",
     "bitfield_of",
+    "c_char",
     "c_double",
     "c_float",
     "c_int",
     "c_long",
+    "c_short",
     "c_str",
+    "c_uchar",
     "c_uint",
     "c_ulong",
+    "c_ushort",
     "enum",
     "enum_of",
     "inflate",

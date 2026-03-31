@@ -6,11 +6,14 @@ libdestruct provides Python equivalents for common C primitive types. All types 
 
 | libdestruct | C equivalent | Size (bytes) | Signed |
 |---|---|---|---|
+| `c_char` | `char` / `int8_t` | 1 | Yes |
+| `c_uchar` | `unsigned char` / `uint8_t` | 1 | No |
+| `c_short` | `short` / `int16_t` | 2 | Yes |
+| `c_ushort` | `unsigned short` / `uint16_t` | 2 | No |
 | `c_int` | `int` / `int32_t` | 4 | Yes |
 | `c_uint` | `unsigned int` / `uint32_t` | 4 | No |
 | `c_long` | `long` / `int64_t` | 8 | Yes |
 | `c_ulong` | `unsigned long` / `uint64_t` | 8 | No |
-| `c_char` | `char` | 1 | — |
 | `c_float` | `float` | 4 | — |
 | `c_double` | `double` | 8 | — |
 | `c_str` | `char[]` | variable | — |
