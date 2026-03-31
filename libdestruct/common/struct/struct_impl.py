@@ -42,7 +42,7 @@ class struct_impl(struct):
         # struct overrides the __init__ method, so we need to call the parent class __init__ method
         obj.__init__(self, resolver)
 
-        self.name = self.__class__.__name__
+        self._struct_name = self.__class__.__name__
         self._members = {}
 
         reference_type = self._reference_struct
@@ -158,9 +158,17 @@ class struct_impl(struct):
 
         cls.size = size
 
+    @property
+    def address(self: struct_impl) -> int:
+        """Return the address of the struct, bypassing __getattribute__ to avoid member collisions."""
+        resolver = object.__getattribute__(self, "resolver")
+        return resolver.resolve_address()
+
     def get(self: struct_impl) -> str:
         """Return the value of the struct."""
-        return f"{self.name}(address={self.address}, size={size_of(self)})"
+        name = object.__getattribute__(self, "_struct_name")
+        addr = struct_impl.address.fget(self)
+        return f"{name}(address={addr}, size={size_of(self)})"
 
     def to_bytes(self: struct_impl) -> bytes:
         """Return the serialized representation of the struct."""
@@ -180,18 +188,21 @@ class struct_impl(struct):
 
     def to_str(self: struct_impl, indent: int = 0) -> str:
         """Return a string representation of the struct."""
+        name = object.__getattribute__(self, "_struct_name")
         members = ",\n".join(
-            [f"{' ' * (indent + 4)}{name}: {member.to_str(indent + 4)}" for name, member in self._members.items()],
+            [f"{' ' * (indent + 4)}{n}: {member.to_str(indent + 4)}" for n, member in self._members.items()],
         )
-        return f"""{self.name} {{
+        return f"""{name} {{
 {members}
 {" " * indent}}}"""
 
     def __repr__(self: struct_impl) -> str:
         """Return a string representation of the struct."""
-        members = ",\n".join([f"{name}: {member}" for name, member in self._members.items()])
-        return f"""{self.name} {{
-    address: 0x{self.address:x},
+        name = object.__getattribute__(self, "_struct_name")
+        addr = struct_impl.address.fget(self)
+        members = ",\n".join([f"{n}: {member}" for n, member in self._members.items()])
+        return f"""{name} {{
+    address: 0x{addr:x},
     size: 0x{size_of(self):x},
     members: {{
         {members}

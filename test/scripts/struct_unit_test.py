@@ -34,6 +34,12 @@ class StructMemberCollisionTest(unittest.TestCase):
         self.assertEqual(test.address.value, 10)
         self.assertEqual(test.b.value, 20)
 
+        # repr and get must not crash when 'address' is a member
+        r = repr(test)
+        self.assertIn("test_t", r)
+        g = test.get()
+        self.assertIn("test_t", g)
+
     def test_struct_with_size_field(self):
         class test_t(struct):
             size: c_int
@@ -60,6 +66,16 @@ class StructMemberCollisionTest(unittest.TestCase):
         self.assertEqual(test.resolver.value, 11)
         self.assertEqual(test.x.value, 22)
 
+        # Internal address lookup must still work even though 'resolver' is a member
+        addr = test.address
+        self.assertIsInstance(addr, int)
+
+        # repr/to_str must not crash
+        r = repr(test)
+        self.assertIn("test_t", r)
+        s = test.to_str()
+        self.assertIn("test_t", s)
+
     def test_struct_with_name_field(self):
         class test_t(struct):
             name: c_int
@@ -67,6 +83,12 @@ class StructMemberCollisionTest(unittest.TestCase):
         memory = (77).to_bytes(4, "little")
         test = test_t.from_bytes(memory)
         self.assertEqual(test.name.value, 77)
+
+        # to_str/repr must use the struct type name, not the member value
+        s = test.to_str()
+        self.assertTrue(s.startswith("test_t"))
+        r = repr(test)
+        self.assertIn("test_t", r)
 
     def test_nested_struct_with_collisions(self):
         class inner_t(struct):
