@@ -96,6 +96,48 @@ print(head.next.unwrap().val.value)      # 20
 print(head.next.unwrap().next.try_unwrap())  # None
 ```
 
+## Pointer Arithmetic
+
+Typed pointers support C-style pointer arithmetic. Adding or subtracting an integer advances/retreats by that many elements (scaled by the pointed-to type's size):
+
+```python
+from libdestruct import c_int, ptr, inflater
+from libdestruct.backing.memory_resolver import MemoryResolver
+import struct as pystruct
+
+# Memory: [ptr to arr] [10] [20] [30]
+memory = bytearray(8 + 12)
+memory[0:8] = pystruct.pack("<q", 8)       # pointer to offset 8
+memory[8:12] = pystruct.pack("<i", 10)
+memory[12:16] = pystruct.pack("<i", 20)
+memory[16:20] = pystruct.pack("<i", 30)
+
+p = ptr(MemoryResolver(memory, 0), c_int)
+
+print(p.unwrap().value)        # 10
+print((p + 1).unwrap().value)  # 20
+print((p + 2).unwrap().value)  # 30
+```
+
+### Indexing
+
+Use `ptr[n]` as shorthand for `(ptr + n).unwrap()`:
+
+```python
+print(p[0].value)  # 10
+print(p[1].value)  # 20
+print(p[2].value)  # 30
+```
+
+### Untyped Pointers
+
+For pointers without a wrapper type, arithmetic advances by 1 byte per unit:
+
+```python
+p_raw = ptr(MemoryResolver(memory, 0))  # no wrapper
+p2 = p_raw + 4   # advances by 4 bytes
+```
+
 ## Pointer String Representation
 
 ```python
