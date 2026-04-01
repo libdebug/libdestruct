@@ -36,6 +36,13 @@ class BitfieldTracker:
         """Return whether a bitfield group is currently active."""
         return self._backing_type is not None
 
+    def needs_new_group(self: BitfieldTracker, field: BitfieldField) -> bool:
+        """Return whether the given field would start a new bitfield group."""
+        return (
+            self._backing_type is not field.backing_type
+            or self._bit_offset + field.bit_width > field.backing_type.size * 8
+        )
+
     def flush(self: BitfieldTracker) -> int:
         """Close the current bitfield group and return the byte size to advance.
 

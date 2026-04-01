@@ -80,13 +80,14 @@ class struct_impl(struct):
         current_offset = 0
         bf_tracker = BitfieldTracker()
         aligned = getattr(reference_type, "_aligned_", False)
+        self._member_offsets = {}
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
             if name == "_aligned_":
                 continue
 
-            resolved_type, bitfield_field, explicit_offset = self._resolve_field(
-                name, annotation, reference, inflater, reference_type,
+            resolved_type, bitfield_field, explicit_offset = struct_impl._resolve_field(
+                name, annotation, reference, inflater, owner=(self, reference_type._type_impl),
             )
 
             if explicit_offset is not None:
@@ -95,6 +96,10 @@ class struct_impl(struct):
                 current_offset = explicit_offset
 
             if bitfield_field:
+                if aligned and bf_tracker.needs_new_group(bitfield_field):
+                    current_offset += bf_tracker.flush()
+                    current_offset = _align_offset(current_offset, alignment_of(bitfield_field.backing_type))
+                self._member_offsets[name] = current_offset
                 result, offset_delta = bf_tracker.create_bitfield(
                     bitfield_field, inflater, resolver, current_offset,
                 )
@@ -103,6 +108,7 @@ class struct_impl(struct):
                 current_offset += bf_tracker.flush()
                 if aligned and explicit_offset is None:
                     current_offset = _align_offset(current_offset, alignment_of(resolved_type))
+                self._member_offsets[name] = current_offset
                 result = resolved_type(resolver.relative_from_own(current_offset, 0))
                 current_offset += size_of(result)
 
@@ -110,13 +116,13 @@ class struct_impl(struct):
 
         current_offset += bf_tracker.flush()
 
+    @staticmethod
     def _resolve_field(
-        self: struct_impl,
         name: str,
         annotation: type,
         reference: type,
         inflater: TypeRegistry,
-        reference_type: type,
+        owner: tuple[obj, type] | None,
     ) -> tuple[object | None, BitfieldField | None, int | None]:
         """Resolve a single struct field annotation to its inflater or BitfieldField.
 
@@ -126,7 +132,7 @@ class struct_impl(struct):
             explicit_offset is set when an OffsetAttribute is present.
         """
         if name not in reference.__dict__:
-            return inflater.inflater_for(annotation, owner=(self, reference_type._type_impl)), None, None
+            return inflater.inflater_for(annotation, owner=owner), None, None
 
         attrs = getattr(reference, name)
         if not isinstance(attrs, tuple):
@@ -144,7 +150,7 @@ class struct_impl(struct):
                 bitfield_field = attr
             elif isinstance(attr, Field):
                 resolved_type = inflater.inflater_for(
-                    (attr, annotation), owner=(self, reference_type._type_impl),
+                    (attr, annotation), owner=owner,
                 )
             elif isinstance(attr, OffsetAttribute):
                 explicit_offset = attr.offset
@@ -152,7 +158,7 @@ class struct_impl(struct):
                 raise TypeError("Only Field, BitfieldField, and OffsetAttribute are allowed in attributes.")
 
         if not resolved_type and not bitfield_field:
-            resolved_type = inflater.inflater_for(annotation, owner=(self, reference_type._type_impl))
+            resolved_type = inflater.inflater_for(annotation, owner=owner)
 
         return resolved_type, bitfield_field, explicit_offset
 
@@ -168,46 +174,39 @@ class struct_impl(struct):
             if name == "_aligned_":
                 continue
 
-            bitfield_field = None
-            attribute = None
-            has_explicit_offset = False
+            resolved_type, bitfield_field, explicit_offset = struct_impl._resolve_field(
+                name, annotation, reference, cls._inflater, owner=(None, cls),
+            )
 
-            if name in reference.__dict__:
-                attrs = getattr(reference, name)
-                if not isinstance(attrs, tuple):
-                    attrs = (attrs,)
-
-                if sum(isinstance(attr, Field) for attr in attrs) > 1:
-                    raise ValueError("Only one Field is allowed per attribute.")
-
-                for attr in attrs:
-                    if isinstance(attr, BitfieldField):
-                        bitfield_field = attr
-                    elif isinstance(attr, Field):
-                        attribute = cls._inflater.inflater_for((attr, annotation), (None, cls))(None)
-                    elif isinstance(attr, OffsetAttribute):
-                        has_explicit_offset = True
-                        offset = attr.offset
-                        if offset < size:
-                            raise ValueError("Offset must be greater than the current size.")
-                        size = offset
-
-                if not attribute and not bitfield_field:
-                    attribute = cls._inflater.inflater_for(annotation, (None, cls))
-            elif isinstance(annotation, Field):
-                attribute = cls._inflater.inflater_for((annotation, annotation.base_type), (None, cls))(None)
-            else:
-                attribute = cls._inflater.inflater_for(annotation, (None, cls))
+            has_explicit_offset = explicit_offset is not None
+            if has_explicit_offset:
+                if explicit_offset < size:
+                    raise ValueError("Offset must be greater than the current size.")
+                size = explicit_offset
 
             if bitfield_field:
+                if aligned and bf_tracker.needs_new_group(bitfield_field):
+                    size += bf_tracker.flush()
+                    field_align = alignment_of(bitfield_field.backing_type)
+                    max_alignment = max(max_alignment, field_align)
+                    size = _align_offset(size, field_align)
                 size += bf_tracker.compute_size(bitfield_field)
             else:
                 size += bf_tracker.flush()
+                # Get attribute for size computation — try size_of directly first,
+                # falling back to calling the inflater with None for complex fields.
+                # Direct size_of avoids recursion for forward-ref pointers.
+                try:
+                    attribute_size = size_of(resolved_type)
+                    attribute = resolved_type
+                except (ValueError, TypeError):
+                    attribute = resolved_type(None)
+                    attribute_size = size_of(attribute)
                 if aligned and not has_explicit_offset:
                     field_align = alignment_of(attribute)
                     max_alignment = max(max_alignment, field_align)
                     size = _align_offset(size, field_align)
-                size += size_of(attribute)
+                size += attribute_size
 
         size += bf_tracker.flush()
 
@@ -232,8 +231,10 @@ class struct_impl(struct):
         return f"{name}(address={addr}, size={size_of(self)})"
 
     def to_bytes(self: struct_impl) -> bytes:
-        """Return the serialized representation of the struct."""
-        return b"".join(member.to_bytes() for member in self._members.values())
+        """Return the serialized representation of the struct, including padding."""
+        if self._frozen:
+            return self._frozen_struct_bytes
+        return self.resolver.resolve(size_of(self), 0)
 
     def to_dict(self: struct_impl) -> dict[str, object]:
         """Return a JSON-serializable dict of field names to values."""
@@ -241,12 +242,8 @@ class struct_impl(struct):
 
     def hexdump(self: struct_impl) -> str:
         """Return a hex dump of this struct's bytes with field annotations."""
-        annotations = {}
-        offset = 0
-        for name, member in self._members.items():
-            annotations[offset] = name
-            offset += len(member.to_bytes())
-
+        member_offsets = object.__getattribute__(self, "_member_offsets")
+        annotations = {member_offsets[name]: name for name in self._members}
         address = struct_impl.address.fget(self) if not self._frozen else 0
         return format_hexdump(self.to_bytes(), address, annotations)
 
@@ -255,8 +252,9 @@ class struct_impl(struct):
         raise RuntimeError("Cannot set the value of a struct.")
 
     def freeze(self: struct_impl) -> None:
-        """Freeze the struct."""
-        # The struct has no implicit value, but it must freeze its members
+        """Freeze the struct, capturing the full byte representation including padding."""
+        self._frozen_struct_bytes = self.resolver.resolve(size_of(self), 0)
+
         for member in self._members.values():
             member.freeze()
 
@@ -288,7 +286,7 @@ class struct_impl(struct):
     def __eq__(self: struct_impl, value: object) -> bool:
         """Return whether the struct is equal to the given value."""
         if not isinstance(value, struct_impl):
-            return False
+            return NotImplemented
 
         if size_of(self) != size_of(value):
             return False

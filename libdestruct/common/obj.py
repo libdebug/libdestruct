@@ -135,7 +135,7 @@ class obj(ABC, Generic[T]):
         self_val = self.value
         if isinstance(other, obj):
             return self_val, other.value
-        if isinstance(other, int | float):
+        if isinstance(other, int | float | bytes):
             return self_val, other
         return None
 

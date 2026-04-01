@@ -568,6 +568,40 @@ class ComparisonTest(unittest.TestCase):
         self.assertFalse(x == "hello")
         self.assertTrue(x != "hello")
 
+    def test_c_str_eq_bytes(self):
+        memory = bytearray(b"hello\x00")
+        lib = inflater(memory)
+        s = lib.inflate(c_str, 0)
+        self.assertEqual(s, b"hello")
+
+
+class FloatIntConversionTest(unittest.TestCase):
+    def test_c_float_int(self):
+        x = c_float.from_bytes(pystruct.pack("<f", 3.14))
+        self.assertEqual(int(x), 3)
+
+    def test_c_double_int(self):
+        x = c_double.from_bytes(pystruct.pack("<d", 2.718))
+        self.assertEqual(int(x), 2)
+
+
+class PtrStructArithmeticTest(unittest.TestCase):
+    def test_ptr_add_struct_element_size(self):
+        """Pointer arithmetic scales by struct element size."""
+        from libdestruct.common.type_registry import TypeRegistry
+
+        class point_t(struct):
+            x: c_int
+            y: c_int
+
+        memory = bytearray(32)
+        pystruct.pack_into("<Q", memory, 0, 0)  # ptr value = 0
+        resolver = MemoryResolver(memory, 0)
+        p = ptr(resolver)
+        p.wrapper = TypeRegistry().inflater_for(point_t)
+        p2 = p + 1
+        self.assertEqual(p2.get(), size_of(point_t))  # 0 + 8 = 8
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -95,6 +95,12 @@ class bitfield(obj):
             return self._backing_instance.to_bytes()
         return b""
 
+    def freeze(self: bitfield) -> None:
+        """Freeze the bitfield, also freezing the shared backing instance if this is the group owner."""
+        if self._is_group_owner and not self._backing_instance._frozen:
+            self._backing_instance.freeze()
+        super().freeze()
+
     def to_str(self: bitfield, _: int = 0) -> str:
         """Return a string representation of the bitfield."""
         return f"{self.get()}"

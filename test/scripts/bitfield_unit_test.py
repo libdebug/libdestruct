@@ -6,7 +6,7 @@
 
 import unittest
 
-from libdestruct import c_int, c_uint, c_long, struct, bitfield_of
+from libdestruct import c_int, c_uint, c_long, inflater, struct, bitfield_of
 from libdestruct.c.struct_parser import definition_to_type
 
 
@@ -137,6 +137,24 @@ class BitfieldCParserTest(unittest.TestCase):
         test = t.from_bytes(memory)
         self.assertEqual(test.flags.value, 5)
         self.assertEqual(test.reserved.value, 10)
+
+
+class BitfieldFreezeTest(unittest.TestCase):
+    def test_bitfield_freeze_to_bytes(self):
+        """Frozen bitfield struct to_bytes returns original bytes."""
+        memory = bytearray(4)
+        memory[0] = 0b_00101_011  # a=3, b=5
+
+        class flags_t(struct):
+            a: c_int = bitfield_of(c_int, 3)
+            b: c_int = bitfield_of(c_int, 5)
+
+        lib = inflater(memory)
+        s = lib.inflate(flags_t, 0)
+        original_bytes = bytes(s.to_bytes())
+        s.freeze()
+        memory[0] = 0xFF
+        self.assertEqual(s.to_bytes(), original_bytes)
 
 
 if __name__ == "__main__":

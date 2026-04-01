@@ -94,6 +94,20 @@ class union(obj):
             v.freeze()
         super().freeze()
 
+    def diff(self: union) -> tuple[object, object]:
+        """Return the difference between the frozen and current value."""
+        if self._variant is not None:
+            return self._variant.diff()
+        return {name: v.diff() for name, v in self._variants.items()}
+
+    def reset(self: union) -> None:
+        """Reset the union to its frozen value."""
+        if self._variant is not None:
+            self._variant.reset()
+        else:
+            for v in self._variants.values():
+                v.reset()
+
     def to_str(self: union, indent: int = 0) -> str:
         """Return a string representation of the union."""
         if self._variant is not None:

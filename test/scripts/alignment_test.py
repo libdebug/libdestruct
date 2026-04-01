@@ -212,3 +212,59 @@ class AlignmentWithOffsetTest(unittest.TestCase):
             c: c_int  # should be at offset 8 (aligned to 4)
 
         self.assertEqual(size_of(s_t), 12)  # 4 + 1 + 3 padding + 4
+
+
+class AlignedStructSerializationTest(unittest.TestCase):
+    def test_aligned_struct_to_bytes_includes_padding(self):
+        """to_bytes on aligned struct includes padding bytes."""
+        class aligned_t(struct):
+            _aligned_ = True
+            a: c_char
+            b: c_int
+
+        memory = pystruct.pack("<b", 0x41) + b"\x00" * 3 + pystruct.pack("<i", 42)
+        s = aligned_t.from_bytes(memory)
+        # to_bytes should be 8 bytes (including padding), not 5
+        self.assertEqual(len(s.to_bytes()), 8)
+
+    def test_aligned_struct_to_bytes_round_trip(self):
+        """from_bytes(to_bytes()) preserves values for aligned structs."""
+        class aligned_t(struct):
+            _aligned_ = True
+            a: c_char
+            b: c_int
+
+        memory = pystruct.pack("<b", 0x41) + b"\x00" * 3 + pystruct.pack("<i", 42)
+        s1 = aligned_t.from_bytes(memory)
+        s2 = aligned_t.from_bytes(s1.to_bytes())
+        self.assertEqual(s2.a.value, 0x41)
+        self.assertEqual(s2.b.value, 42)
+
+
+class BitfieldAlignmentTest(unittest.TestCase):
+    def test_bitfield_alignment_padding(self):
+        """Bitfield backing type is aligned in aligned structs."""
+        from libdestruct import bitfield_of
+
+        class s_t(struct):
+            _aligned_ = True
+            a: c_char
+            flags: c_int = bitfield_of(c_int, 3)
+
+        # c_char (1) + 3 padding + c_int backing (4) = 8
+        self.assertEqual(size_of(s_t), 8)
+
+    def test_bitfield_alignment_read(self):
+        """Bitfield values read correctly in aligned structs."""
+        from libdestruct import bitfield_of
+        from libdestruct import c_uint
+
+        class s_t(struct):
+            _aligned_ = True
+            a: c_char
+            flags: c_uint = bitfield_of(c_uint, 3)
+
+        memory = pystruct.pack("<b", 0x41) + b"\x00" * 3 + pystruct.pack("<I", 5)
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.a.value, 0x41)
+        self.assertEqual(s.flags.value, 5)

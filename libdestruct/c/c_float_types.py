@@ -41,6 +41,10 @@ class c_float(obj):
         """Return the value as a Python float."""
         return self.get()
 
+    def __int__(self: c_float) -> int:
+        """Return the value as a Python int."""
+        return int(self.get())
+
 
 class c_double(obj):
     """A C double (IEEE 754 double-precision, 64-bit)."""
@@ -71,3 +75,7 @@ class c_double(obj):
     def __float__(self: c_double) -> float:
         """Return the value as a Python float."""
         return self.get()
+
+    def __int__(self: c_double) -> int:
+        """Return the value as a Python int."""
+        return int(self.get())

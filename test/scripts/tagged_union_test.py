@@ -176,3 +176,50 @@ class PlainUnionTest(unittest.TestCase):
         # Reading as float should reinterpret the same bytes
         expected_float = pystruct.unpack("<f", pystruct.pack("<i", 42))[0]
         self.assertAlmostEqual(pkt.data.f.value, expected_float)
+
+
+class UnionFreezeTest(unittest.TestCase):
+    def test_tagged_union_freeze_preserves_value(self):
+        """Tagged union freeze preserves the active variant value."""
+        class s_t(struct):
+            type: c_int
+            payload: union = tagged_union("type", {0: c_int, 1: c_float})
+
+        memory = bytearray(8)
+        pystruct.pack_into("<ii", memory, 0, 0, 42)
+        lib = inflater(memory)
+        s = lib.inflate(s_t, 0)
+        s.freeze()
+        pystruct.pack_into("<ii", memory, 0, 0, 99)
+        self.assertEqual(s.payload.value, 42)
+
+    def test_tagged_union_diff(self):
+        """Tagged union diff shows frozen vs current."""
+        class s_t(struct):
+            type: c_int
+            payload: union = tagged_union("type", {0: c_int})
+
+        memory = bytearray(8)
+        pystruct.pack_into("<ii", memory, 0, 0, 42)
+        lib = inflater(memory)
+        s = lib.inflate(s_t, 0)
+        s.payload.freeze()
+        pystruct.pack_into("<i", memory, 4, 99)
+        old, new = s.payload.diff()
+        self.assertEqual(old, 42)
+        self.assertEqual(new, 99)
+
+    def test_plain_union_reset(self):
+        """Plain union reset restores frozen values."""
+        class s_t(struct):
+            data: union = union_of({"i": c_int, "l": c_long})
+
+        memory = bytearray(8)
+        pystruct.pack_into("<i", memory, 0, 42)
+        lib = inflater(memory)
+        s = lib.inflate(s_t, 0)
+        s.data.freeze()
+        original_i = s.data.i.value
+        pystruct.pack_into("<i", memory, 0, 99)
+        s.data.reset()
+        self.assertEqual(s.data.i.value, original_i)

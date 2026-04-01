@@ -57,6 +57,12 @@ TYPEDEFS = {}
 """A cache for parsed type definitions, indexed by name."""
 
 
+def clear_parser_cache() -> None:
+    """Clear cached struct definitions and typedefs from previous parses."""
+    PARSED_STRUCTS.clear()
+    TYPEDEFS.clear()
+
+
 def definition_to_type(definition: str) -> type[obj]:
     """Converts a C struct definition to a struct object."""
     parser = c_parser.CParser()

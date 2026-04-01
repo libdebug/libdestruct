@@ -236,5 +236,15 @@ class ForwardRefPtrTest(unittest.TestCase):
         self.assertEqual(node.data.value, 42)
 
 
+class StructEqualityTest(unittest.TestCase):
+    def test_struct_eq_non_struct_returns_not_implemented(self):
+        """struct.__eq__ returns NotImplemented for non-struct values."""
+        class s_t(struct):
+            x: c_int
+
+        s = s_t.from_bytes(b"\x01\x00\x00\x00")
+        self.assertIs(s.__eq__(42), NotImplemented)
+
+
 if __name__ == "__main__":
     unittest.main()
