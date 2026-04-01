@@ -4,4 +4,4 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
-import libdestruct.common.forward_ref_inflater
+import libdestruct.common.forward_ref_inflater  # noqa: F401
