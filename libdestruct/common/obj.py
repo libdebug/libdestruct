@@ -136,7 +136,11 @@ class obj(ABC, Generic[T]):
         """Extract comparable values from self and other, or None if incompatible."""
         self_val = self.value
         if isinstance(other, obj):
-            return self_val, other.value
+            other_val = other.value
+            # Guard against incompatible value types (e.g. int vs str from struct.get())
+            if type(self_val) is not type(other_val) and not isinstance(self_val, type(other_val)) and not isinstance(other_val, type(self_val)):
+                return None
+            return self_val, other_val
         if isinstance(other, int | float | bytes):
             return self_val, other
         return None

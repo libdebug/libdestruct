@@ -245,20 +245,22 @@ class struct_impl(struct):
 
     def to_bytes(self: struct_impl) -> bytes:
         """Return the serialized representation of the struct, including padding."""
-        if self._frozen:
-            return self._frozen_struct_bytes
+        if object.__getattribute__(self, "_frozen"):
+            return object.__getattribute__(self, "_frozen_struct_bytes")
         resolver = object.__getattribute__(self, "resolver")
         return resolver.resolve(size_of(self), 0)
 
     def to_dict(self: struct_impl) -> dict[str, object]:
         """Return a JSON-serializable dict of field names to values."""
-        return {name: member.to_dict() for name, member in self._members.items()}
+        members = object.__getattribute__(self, "_members")
+        return {name: member.to_dict() for name, member in members.items()}
 
     def hexdump(self: struct_impl) -> str:
         """Return a hex dump of this struct's bytes with field annotations."""
         member_offsets = object.__getattribute__(self, "_member_offsets")
-        annotations = {member_offsets[name]: name for name in self._members}
-        address = struct_impl.address.fget(self) if not self._frozen else 0
+        members = object.__getattribute__(self, "_members")
+        annotations = {member_offsets[name]: name for name in members}
+        address = struct_impl.address.fget(self) if not object.__getattribute__(self, "_frozen") else 0
         return format_hexdump(self.to_bytes(), address, annotations)
 
     def _set(self: struct_impl, _: str) -> None:
@@ -268,9 +270,10 @@ class struct_impl(struct):
     def freeze(self: struct_impl) -> None:
         """Freeze the struct, capturing the full byte representation including padding."""
         resolver = object.__getattribute__(self, "resolver")
-        self._frozen_struct_bytes = resolver.resolve(size_of(self), 0)
+        object.__setattr__(self, "_frozen_struct_bytes", resolver.resolve(size_of(self), 0))
 
-        for member in self._members.values():
+        members = object.__getattribute__(self, "_members")
+        for member in members.values():
             member.freeze()
 
         super().freeze()
@@ -278,8 +281,9 @@ class struct_impl(struct):
     def to_str(self: struct_impl, indent: int = 0) -> str:
         """Return a string representation of the struct."""
         name = object.__getattribute__(self, "_struct_name")
+        members_dict = object.__getattribute__(self, "_members")
         members = ",\n".join(
-            [f"{' ' * (indent + 4)}{n}: {member.to_str(indent + 4)}" for n, member in self._members.items()],
+            [f"{' ' * (indent + 4)}{n}: {member.to_str(indent + 4)}" for n, member in members_dict.items()],
         )
         return f"""{name} {{
 {members}
@@ -289,7 +293,8 @@ class struct_impl(struct):
         """Return a string representation of the struct."""
         name = object.__getattribute__(self, "_struct_name")
         addr = struct_impl.address.fget(self)
-        members = ",\n".join([f"{n}: {member}" for n, member in self._members.items()])
+        members_dict = object.__getattribute__(self, "_members")
+        members = ",\n".join([f"{n}: {member}" for n, member in members_dict.items()])
         return f"""{name} {{
     address: 0x{addr:x},
     size: 0x{size_of(self):x},
@@ -306,7 +311,10 @@ class struct_impl(struct):
         if size_of(self) != size_of(value):
             return False
 
-        if not self._members.keys() == value._members.keys():
+        self_members = object.__getattribute__(self, "_members")
+        other_members = object.__getattribute__(value, "_members")
+
+        if self_members.keys() != other_members.keys():
             return False
 
-        return all(getattr(self, name) == getattr(value, name) for name in self._members)
+        return all(getattr(self, name) == getattr(value, name) for name in self_members)

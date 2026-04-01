@@ -11,71 +11,54 @@ import struct
 from libdestruct.common.obj import obj
 
 
-class c_float(obj):
-    """A C float (IEEE 754 single-precision, 32-bit)."""
+class _c_float_base(obj):
+    """A generic C floating-point type, to be subclassed by c_float and c_double."""
 
-    size: int = 4
-    """The size of a float in bytes."""
+    size: int
+    """The size of the float in bytes."""
+
+    _format: str
+    """The struct format character ('f' or 'd')."""
 
     _frozen_value: float | None = None
     """The frozen value of the float."""
 
-    def _format_char(self: c_float) -> str:
-        return "<f" if self.endianness == "little" else ">f"
+    def _format_char(self: _c_float_base) -> str:
+        prefix = "<" if self.endianness == "little" else ">"
+        return prefix + self._format
 
-    def get(self: c_float) -> float:
+    def get(self: _c_float_base) -> float:
         """Return the value of the float."""
         return struct.unpack(self._format_char(), self.resolver.resolve(self.size, 0))[0]
 
-    def _set(self: c_float, value: float) -> None:
+    def _set(self: _c_float_base, value: float) -> None:
         """Set the value of the float."""
         self.resolver.modify(self.size, 0, struct.pack(self._format_char(), value))
 
-    def to_bytes(self: c_float) -> bytes:
+    def to_bytes(self: _c_float_base) -> bytes:
         """Return the serialized representation of the float."""
         if self._frozen:
             return struct.pack(self._format_char(), self._frozen_value)
         return self.resolver.resolve(self.size, 0)
 
-    def __float__(self: c_float) -> float:
+    def __float__(self: _c_float_base) -> float:
         """Return the value as a Python float."""
         return self.get()
 
-    def __int__(self: c_float) -> int:
+    def __int__(self: _c_float_base) -> int:
         """Return the value as a Python int."""
         return int(self.get())
 
 
-class c_double(obj):
+class c_float(_c_float_base):
+    """A C float (IEEE 754 single-precision, 32-bit)."""
+
+    size: int = 4
+    _format: str = "f"
+
+
+class c_double(_c_float_base):
     """A C double (IEEE 754 double-precision, 64-bit)."""
 
     size: int = 8
-    """The size of a double in bytes."""
-
-    _frozen_value: float | None = None
-    """The frozen value of the double."""
-
-    def _format_char(self: c_double) -> str:
-        return "<d" if self.endianness == "little" else ">d"
-
-    def get(self: c_double) -> float:
-        """Return the value of the double."""
-        return struct.unpack(self._format_char(), self.resolver.resolve(self.size, 0))[0]
-
-    def _set(self: c_double, value: float) -> None:
-        """Set the value of the double."""
-        self.resolver.modify(self.size, 0, struct.pack(self._format_char(), value))
-
-    def to_bytes(self: c_double) -> bytes:
-        """Return the serialized representation of the double."""
-        if self._frozen:
-            return struct.pack(self._format_char(), self._frozen_value)
-        return self.resolver.resolve(self.size, 0)
-
-    def __float__(self: c_double) -> float:
-        """Return the value as a Python float."""
-        return self.get()
-
-    def __int__(self: c_double) -> int:
-        """Return the value as a Python int."""
-        return int(self.get())
+    _format: str = "d"

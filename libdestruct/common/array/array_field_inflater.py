@@ -43,8 +43,8 @@ def _subscripted_array_handler(
     if len(args) != 2:
         return None
     element_type, count = args
-    if not isinstance(count, int):
-        return None
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError(f"array count must be a positive integer, got {count}")
     field = LinearArrayField(element_type, count)
     field.item = registry.inflater_for(element_type)
     return field.inflate

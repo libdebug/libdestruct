@@ -16,10 +16,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.common.obj import obj
 
 
+_VALID_ENDIANNESS = ("little", "big")
+
+
 def inflater(memory: Sequence, endianness: str = "little") -> Inflater:
     """Return a TypeInflater instance."""
     if not isinstance(memory, Sequence):
         raise TypeError(f"memory must be a Sequence, not {type(memory).__name__}")
+
+    if endianness not in _VALID_ENDIANNESS:
+        raise ValueError(f"endianness must be 'little' or 'big', not {endianness!r}")
 
     return Inflater(memory, endianness=endianness)
 

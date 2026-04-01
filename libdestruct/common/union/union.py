@@ -119,10 +119,18 @@ class union(obj):
 
     def __getattr__(self: union, name: str) -> object:
         """Delegate attribute access to named variants or the active variant."""
-        variants = object.__getattribute__(self, "_variants")
-        if name in variants:
-            return variants[name]
-        variant = object.__getattribute__(self, "_variant")
-        if variant is not None:
-            return getattr(variant, name)
+        try:
+            variants = object.__getattribute__(self, "_variants")
+            if name in variants:
+                return variants[name]
+        except AttributeError:
+            pass
+
+        try:
+            variant = object.__getattribute__(self, "_variant")
+            if variant is not None:
+                return getattr(variant, name)
+        except AttributeError:
+            pass
+
         raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")

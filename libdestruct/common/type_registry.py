@@ -146,7 +146,8 @@ class TypeRegistry:
         if parent not in self.type_handlers:
             self.type_handlers[parent] = []
 
-        self.type_handlers[parent].append(handler)
+        if handler not in self.type_handlers[parent]:
+            self.type_handlers[parent].append(handler)
 
     def register_instance_handler(
         self: TypeRegistry,
@@ -165,7 +166,8 @@ class TypeRegistry:
         if parent not in self.instance_handlers:
             self.instance_handlers[parent] = []
 
-        self.instance_handlers[parent].append(handler)
+        if handler not in self.instance_handlers[parent]:
+            self.instance_handlers[parent].append(handler)
 
     def register_generic_handler(
         self: TypeRegistry,
@@ -181,7 +183,8 @@ class TypeRegistry:
         if origin not in self.generic_handlers:
             self.generic_handlers[origin] = []
 
-        self.generic_handlers[origin].append(handler)
+        if handler not in self.generic_handlers[origin]:
+            self.generic_handlers[origin].append(handler)
 
     def register_mapping(
         self: TypeRegistry,
