@@ -7,7 +7,9 @@
 import unittest
 from enum import IntEnum
 
-from libdestruct import array, c_int, c_long, c_short, c_uint, inflater, struct, ptr, ptr_to_self, array_of, enum, enum_of
+from typing import Annotated
+
+from libdestruct import array, c_int, c_long, c_short, c_uint, inflater, offset, struct, ptr, ptr_to_self, array_of, enum, enum_of
 
 
 class StructMemberCollisionTest(unittest.TestCase):
@@ -352,6 +354,59 @@ class SubscriptSyntaxTest(unittest.TestCase):
         self.assertEqual(s.dir.value, Direction.DOWN)
         self.assertEqual(s.coords[0].value, 10)
         self.assertEqual(s.coords[1].value, 20)
+
+
+class AnnotatedOffsetTest(unittest.TestCase):
+    """Test Annotated[type, offset(N)] syntax for explicit field offsets."""
+
+    def test_annotated_offset_basic(self):
+        """Annotated[c_int, offset(N)] places a field at the given offset."""
+        class s_t(struct):
+            a: c_int
+            b: Annotated[c_int, offset(8)]
+
+        from libdestruct import size_of
+        self.assertEqual(size_of(s_t), 12)  # 8 + 4
+
+    def test_annotated_offset_read(self):
+        """Values are read correctly from Annotated offset positions."""
+        import struct as pystruct
+
+        class s_t(struct):
+            a: c_int
+            b: Annotated[c_int, offset(8)]
+
+        memory = pystruct.pack("<i", 10) + b"\x00" * 4 + pystruct.pack("<i", 20)
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.a.value, 10)
+        self.assertEqual(s.b.value, 20)
+
+    def test_annotated_offset_with_subscript(self):
+        """Annotated works with subscript syntax types."""
+        class s_t(struct):
+            a: c_int
+            data: Annotated[array[c_int, 2], offset(8)]
+
+        from libdestruct import size_of
+        self.assertEqual(size_of(s_t), 16)  # 8 + 2*4
+
+    def test_annotated_offset_with_ptr(self):
+        """Annotated works with ptr subscript syntax."""
+        class s_t(struct):
+            a: c_int
+            ref: Annotated[ptr[c_int], offset(8)]
+
+        from libdestruct import size_of
+        self.assertEqual(size_of(s_t), 16)  # 8 + 8
+
+    def test_old_offset_syntax_still_works(self):
+        """The old offset() default value syntax continues to work."""
+        class s_t(struct):
+            a: c_int
+            b: c_int = offset(8)
+
+        from libdestruct import size_of
+        self.assertEqual(size_of(s_t), 12)
 
 
 class StructEqualityTest(unittest.TestCase):

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated, get_args, get_origin
+
 from typing_extensions import Self
 
 from libdestruct.backing.fake_resolver import FakeResolver
@@ -131,8 +133,17 @@ class struct_impl(struct):
             Either resolved_inflater or bitfield_field will be non-None (not both).
             explicit_offset is set when an OffsetAttribute is present.
         """
+        # Unwrap Annotated[type, metadata...] — extract the real type and any metadata
+        annotated_offset = None
+        if get_origin(annotation) is Annotated:
+            ann_args = get_args(annotation)
+            annotation = ann_args[0]
+            for meta in ann_args[1:]:
+                if isinstance(meta, OffsetAttribute):
+                    annotated_offset = meta.offset
+
         if name not in reference.__dict__:
-            return inflater.inflater_for(annotation, owner=owner), None, None
+            return inflater.inflater_for(annotation, owner=owner), None, annotated_offset
 
         attrs = getattr(reference, name)
         if not isinstance(attrs, tuple):
@@ -143,7 +154,7 @@ class struct_impl(struct):
 
         resolved_type = None
         bitfield_field = None
-        explicit_offset = None
+        explicit_offset = annotated_offset
 
         for attr in attrs:
             if isinstance(attr, BitfieldField):
