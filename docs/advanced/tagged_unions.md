@@ -153,6 +153,7 @@ size_of(msg_t)  # 12 (4 + max(4, 8))
 Use the `variant` property to get the active variant object directly:
 
 ```python
+data = pystruct.pack("<i", 0) + pystruct.pack("<i", 42) + b"\x00" * 4
 msg = message_t.from_bytes(data)
 variant_obj = msg.payload.variant  # the raw c_int, c_float, etc.
 ```
@@ -168,7 +169,10 @@ class msg_t(struct):
 
 # type=99 has no matching variant
 memory = pystruct.pack("<i", 99) + b"\x00" * 4
-msg_t.from_bytes(memory)  # raises ValueError
+try:
+    msg_t.from_bytes(memory)
+except ValueError:
+    print("ValueError: unknown discriminator")
 ```
 
 !!! info

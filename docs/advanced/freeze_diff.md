@@ -32,6 +32,10 @@ except ValueError:
 Use `diff()` to compare the frozen value with the current live value:
 
 ```python
+memory = bytearray(4)
+lib = inflater(memory)
+x = lib.inflate(c_int, 0)
+
 x.value = 42
 x.freeze()
 
@@ -96,14 +100,25 @@ except ValueError:
 A typical workflow for detecting changes:
 
 ```python
+class game_state_t(struct):
+    health: c_int
+    score: c_int
+    level: c_int
+
+memory = bytearray(12)
+lib = inflater(memory)
+
 # 1. Inflate the struct
-state = lib.inflate(game_state_t, addr)
+state = lib.inflate(game_state_t, 0)
 
 # 2. Freeze the current state
+state.health.value = 100
+state.score.value = 500
+state.level.value = 3
 state.freeze()
 
-# 3. Let the program run (memory changes externally)
-# ...
+# 3. Something changes the underlying memory
+memory[4:8] = (9999).to_bytes(4, "little")  # score changed
 
 # 4. Check what changed
 for name in ["health", "score", "level"]:
@@ -111,7 +126,9 @@ for name in ["health", "score", "level"]:
     old, new = member.diff()
     if old != new:
         print(f"{name}: {old} -> {new}")
+# score: 500 -> 9999
 
 # 5. Optionally reset to the frozen state
 state.reset()
+print(state.score.value)  # 500 (restored)
 ```

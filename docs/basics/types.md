@@ -66,7 +66,7 @@ print(x.value)  # 42
 The `size_of()` function returns the size in bytes of any type, instance, or field descriptor:
 
 ```python
-from libdestruct import size_of, c_int, c_long, c_float, ptr, struct, array_of
+from libdestruct import size_of, c_int, c_long, c_float, ptr, struct, array, array_of
 
 size_of(c_int)    # 4
 size_of(c_long)   # 8

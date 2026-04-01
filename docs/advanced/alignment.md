@@ -7,7 +7,7 @@ You can opt into natural alignment (matching standard C struct layout) by settin
 ## Enabling Alignment
 
 ```python
-from libdestruct import struct, c_char, c_int, c_long, size_of
+from libdestruct import struct, c_char, c_int, c_long, c_short, size_of, alignment_of
 
 class packed_t(struct):
     a: c_char

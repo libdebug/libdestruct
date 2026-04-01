@@ -7,7 +7,7 @@ Bitfields let you pack multiple values into a single integer, just like C bitfie
 Use `bitfield_of(backing_type, bit_width)` as a struct field descriptor:
 
 ```python
-from libdestruct import struct, c_uint, bitfield_of
+from libdestruct import struct, c_uint, c_long, bitfield_of
 
 class flags_t(struct):
     read: c_uint = bitfield_of(c_uint, 1)

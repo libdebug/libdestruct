@@ -197,7 +197,7 @@ Legacy syntax with `array_of()` is still supported:
 ```python
 class packet_t(struct):
     length: c_int
-    data: array_of(c_int, 8)
+    data: array = array_of(c_int, 8)
 ```
 
 Access array elements:

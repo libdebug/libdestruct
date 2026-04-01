@@ -230,6 +230,46 @@ class StructFreezeTest(unittest.TestCase):
             test.a.value = 99
 
 
+class StructResetTest(unittest.TestCase):
+    """Struct reset semantics."""
+
+    def test_struct_reset_restores_members(self):
+        """reset() on a frozen struct should restore all member values."""
+        class test_t(struct):
+            a: c_int
+            b: c_int
+
+        memory = bytearray(8)
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+        test.a.value = 10
+        test.b.value = 20
+        test.freeze()
+
+        # Modify underlying memory
+        memory[0:4] = (99).to_bytes(4, "little")
+        memory[4:8] = (88).to_bytes(4, "little")
+        # .get() reads live memory; .value returns frozen value
+        self.assertEqual(test.a.get(), 99)
+        self.assertEqual(test.b.get(), 88)
+
+        # Reset should restore frozen values to memory
+        test.reset()
+        self.assertEqual(test.a.get(), 10)
+        self.assertEqual(test.b.get(), 20)
+
+    def test_struct_reset_without_freeze_raises(self):
+        """reset() without freeze should raise."""
+        class test_t(struct):
+            a: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+        with self.assertRaises(RuntimeError):
+            test.reset()
+
+
 class ForwardRefPtrTest(unittest.TestCase):
     """Forward reference ptr["Type"] syntax."""
 

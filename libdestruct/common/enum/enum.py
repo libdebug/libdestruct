@@ -54,7 +54,13 @@ class enum(obj):
 
     def get(self: enum) -> Enum:
         """Return the value of the enum."""
-        return self.python_enum(self._backing_type.get())
+        raw = self._backing_type.get()
+        if self.lenient:
+            try:
+                return self.python_enum(raw)
+            except ValueError:
+                return raw
+        return self.python_enum(raw)
 
     def _set(self: enum, value: Enum) -> None:
         """Set the value of the enum."""

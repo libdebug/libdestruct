@@ -94,7 +94,7 @@ The legacy `array_of()` syntax is also supported:
 from libdestruct import struct, c_int, array_of
 
 class matrix_row_t(struct):
-    values: array_of(c_int, 4)
+    values: array = array_of(c_int, 4)
 ```
 
 ```python

@@ -3,10 +3,10 @@
 Structs are the core building block for describing binary layouts. Define a struct by subclassing `struct` and using type annotations:
 
 ```python
-from libdestruct import struct, c_int, c_long
+from libdestruct import struct, c_int, c_uint, c_long
 
 class header_t(struct):
-    magic: c_int
+    magic: c_uint
     version: c_int
     size: c_long
 ```
@@ -40,6 +40,10 @@ print(f"size: {header.size.value}")           # size: 4096
 Each struct field is an `obj` instance. Use `.value` to read or write the underlying value:
 
 ```python
+memory = bytearray(16)
+lib = inflater(memory)
+header = lib.inflate(header_t, 0)
+
 header.magic.value = 0xcafebabe
 print(f"0x{header.magic.value:08x}")  # 0xcafebabe
 ```

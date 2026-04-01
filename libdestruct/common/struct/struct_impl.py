@@ -284,6 +284,15 @@ class struct_impl(struct):
 
         super().freeze()
 
+    def reset(self: struct_impl) -> None:
+        """Reset each member to its frozen value."""
+        if not self._frozen:
+            raise RuntimeError("Cannot reset a struct that has not been frozen.")
+
+        members = object.__getattribute__(self, "_members")
+        for member in members.values():
+            member.reset()
+
     def to_str(self: struct_impl, indent: int = 0) -> str:
         """Return a string representation of the struct."""
         name = object.__getattribute__(self, "_struct_name")

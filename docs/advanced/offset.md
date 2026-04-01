@@ -102,14 +102,5 @@ class example_t(struct):
     items: Annotated[array[c_int, 4], offset(0x10)]
 ```
 
-With the legacy syntax, `offset()` can be combined with `Field` attributes using a tuple:
-
-```python
-from libdestruct.common.field import Field
-
-class example_t(struct):
-    data: c_int = (Field(), offset(8))
-```
-
 !!! note
-    When using tuples of attributes, only one `Field` is allowed per annotation. Multiple `OffsetAttribute`s are also not typical — use a single `offset()` to set the position.
+    The `Annotated` syntax is preferred for combining offsets with complex types. The legacy default-value syntax also supports offset combined with other field descriptors using a tuple (e.g., `data: c_int = (enum_of(Color), offset(8))`).

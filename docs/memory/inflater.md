@@ -77,6 +77,15 @@ print(pair.b.value)  # 2
 The inflater lets you inflate multiple objects from different offsets in the same memory:
 
 ```python
+class header_t(struct):
+    magic: c_int
+
+class data_t(struct):
+    value: c_int
+
+class footer_t(struct):
+    checksum: c_int
+
 memory = bytearray(100)
 lib = inflater(memory)
 
