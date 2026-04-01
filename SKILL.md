@@ -234,7 +234,7 @@ Legacy syntax with `enum_of()` is still supported:
 
 ```python
 class pixel_t(struct):
-    color: c_int = enum_of(Color)
+    color: enum = enum_of(Color)
     alpha: c_int
 ```
 

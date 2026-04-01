@@ -56,8 +56,8 @@ class ToDictTest(unittest.TestCase):
         result = entity.to_dict()
         self.assertEqual(result, {"id": 1, "pos": {"x": 10, "y": 20}})
 
-    def test_struct_with_ptr_to_dict(self):
-        """Pointer field returns its address as int."""
+    def test_struct_with_long_to_dict(self):
+        """Integer field returns its value."""
         class data_t(struct):
             value: c_int
             ref: c_long

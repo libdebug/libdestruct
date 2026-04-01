@@ -101,12 +101,11 @@ class union(obj):
         return {name: v.diff() for name, v in self._variants.items()}
 
     def reset(self: union) -> None:
-        """Reset the union to its frozen value."""
-        if self._variant is not None:
-            self._variant.reset()
-        else:
-            for v in self._variants.values():
-                v.reset()
+        """Reset the union to its frozen value by restoring the full frozen byte region."""
+        if self._frozen_bytes is None:
+            raise RuntimeError("Cannot reset a union that has not been frozen.")
+        if self.resolver is not None:
+            self.resolver.modify(self.size, 0, self._frozen_bytes)
 
     def to_str(self: union, indent: int = 0) -> str:
         """Return a string representation of the union."""

@@ -524,5 +524,92 @@ class SubscriptedEnumUnsignedTest(unittest.TestCase):
         self.assertEqual(size_of(s_t), 2)
 
 
+class SizeOfGenericAliasTest(unittest.TestCase):
+    """size_of() must handle subscripted GenericAlias types like array[c_int, 10]."""
+
+    def test_size_of_subscripted_array(self):
+        self.assertEqual(size_of(array[c_int, 10]), 40)
+
+    def test_size_of_subscripted_enum(self):
+        from enum import IntEnum
+
+        class Color(IntEnum):
+            RED = 0
+
+        self.assertEqual(size_of(enum[Color]), 4)
+        self.assertEqual(size_of(enum[Color, c_short]), 2)
+
+    def test_size_of_subscripted_ptr(self):
+        self.assertEqual(size_of(ptr[c_int]), 8)
+
+
+class UnionResetTest(unittest.TestCase):
+    """union.reset() must restore the full frozen byte region."""
+
+    def test_tagged_union_reset_struct_variant(self):
+        """reset() on a tagged union with a struct variant must not crash."""
+        import struct as pystruct
+
+        class point_t(struct):
+            x: c_int
+            y: c_int
+
+        class msg_t(struct):
+            tag: c_int
+            payload: union = tagged_union("tag", {0: c_int, 1: point_t})
+
+        memory = bytearray(12)
+        memory[0:4] = pystruct.pack("<i", 1)   # tag = 1 → point_t
+        memory[4:8] = pystruct.pack("<i", 10)  # x = 10
+        memory[8:12] = pystruct.pack("<i", 20) # y = 20
+
+        lib = inflater(memory)
+        msg = lib.inflate(msg_t, 0)
+        msg.freeze()
+
+        # Corrupt memory
+        memory[4:12] = b"\xff" * 8
+        msg.payload.reset()
+
+        # Verify restored
+        self.assertEqual(msg.payload.variant.x.value, 10)
+        self.assertEqual(msg.payload.variant.y.value, 20)
+
+    def test_plain_union_reset(self):
+        """reset() on a plain union must restore the full frozen region."""
+        import struct as pystruct
+
+        memory = bytearray(8)
+        memory[0:8] = pystruct.pack("<q", 0x1234567890ABCDEF)
+
+        class s_t(struct):
+            data: union = union_of({"i": c_int, "l": c_long})
+
+        lib = inflater(memory)
+        s = lib.inflate(s_t, 0)
+        s.freeze()
+
+        memory[0:8] = b"\x00" * 8
+        s.data.reset()
+
+        self.assertEqual(s.data.l.value, 0x1234567890ABCDEF)
+
+
+class HexdumpBitfieldAnnotationsTest(unittest.TestCase):
+    """hexdump() must show all bitfield names at the same offset."""
+
+    def test_bitfield_hexdump_shows_all_names(self):
+        class flags_t(struct):
+            read: c_int = bitfield_of(c_int, 1)
+            write: c_int = bitfield_of(c_int, 1)
+            execute: c_int = bitfield_of(c_int, 1)
+
+        f = flags_t.from_bytes(b"\x07\x00\x00\x00")
+        dump = f.hexdump()
+        self.assertIn("read", dump)
+        self.assertIn("write", dump)
+        self.assertIn("execute", dump)
+
+
 if __name__ == "__main__":
     unittest.main()

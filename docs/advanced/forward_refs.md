@@ -21,11 +21,11 @@ At inflation time, the string `"Node"` is resolved to the actual `Node` class. T
 For the common case of a pointer to the enclosing struct, the legacy `ptr_to_self` syntax is also available:
 
 ```python
-from libdestruct import struct, c_int, ptr_to_self
+from libdestruct import struct, c_int, ptr, ptr_to_self
 
 class Node(struct):
     val: c_int
-    next: ptr_to_self
+    next: ptr = ptr_to_self()
 ```
 
 This is equivalent to `ptr["Node"]` but doesn't require you to spell out the type name. The `ptr["TypeName"]` syntax is preferred as it is more explicit.

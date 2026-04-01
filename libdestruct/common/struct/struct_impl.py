@@ -259,7 +259,13 @@ class struct_impl(struct):
         """Return a hex dump of this struct's bytes with field annotations."""
         member_offsets = object.__getattribute__(self, "_member_offsets")
         members = object.__getattribute__(self, "_members")
-        annotations = {member_offsets[name]: name for name in members}
+        annotations: dict[int, str] = {}
+        for name in members:
+            off = member_offsets[name]
+            if off in annotations:
+                annotations[off] += ", " + name
+            else:
+                annotations[off] = name
         address = struct_impl.address.fget(self) if not object.__getattribute__(self, "_frozen") else 0
         return format_hexdump(self.to_bytes(), address, annotations)
 

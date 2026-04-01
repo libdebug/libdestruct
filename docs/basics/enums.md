@@ -32,7 +32,7 @@ The legacy `enum_of()` syntax is also supported:
 from libdestruct import struct, c_int, enum_of
 
 class pixel_t(struct):
-    color: enum_of(Color, c_int)
+    color: enum = enum_of(Color)
     x: c_int
     y: c_int
 ```
