@@ -38,6 +38,9 @@ from libdestruct import (
     array_of,          # fixed-size array field descriptor
     enum_of,           # enum field descriptor
     bitfield_of,       # bitfield descriptor
+    union,             # union annotation type
+    union_of,          # plain union field descriptor
+    tagged_union,      # tagged union field descriptor
     offset,            # explicit field offset
     size_of,           # get size in bytes of any type/instance/field
 )
@@ -216,6 +219,31 @@ class flags_t(struct):
 ```
 
 Consecutive bitfields with the same backing type are packed together. The struct above is 4 bytes total, not 16.
+
+### Unions
+
+```python
+from libdestruct.common.union import union, union_of, tagged_union
+
+# Plain union — all variants overlaid at the same offset
+class packet_t(struct):
+    data: union = union_of({"i": c_int, "f": c_float, "l": c_long})
+
+pkt = lib.inflate(packet_t, 0)
+pkt.data.i.value  # interpret as int
+pkt.data.f.value  # interpret as float (same bytes)
+
+# Tagged union — discriminator selects the active variant
+class message_t(struct):
+    type: c_int
+    payload: union = tagged_union("type", {
+        0: c_int,
+        1: c_float,
+        2: point_t,  # struct variants work too
+    })
+```
+
+The discriminator field must appear before the union. The union size is the max of all variant sizes. Struct variant fields are accessible directly: `msg.payload.x.value`. Use `.variant` to get the raw variant object. Unknown discriminator values raise `ValueError`.
 
 ### Explicit Field Offsets
 
