@@ -123,9 +123,9 @@ memory = bytearray(b"Hello\x00World\x00")
 lib = inflater(memory)
 
 s = lib.inflate(c_str, 0)
-print(s.value)  # "Hello"
+print(s.value)  # b"Hello"
 print(len(s))   # 5
-print(s[0])     # 72 (ord('H'))
+print(s[0])     # b"H"
 ```
 
 !!! info

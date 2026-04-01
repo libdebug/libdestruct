@@ -47,7 +47,7 @@ print(data.next.unwrap().value)   # 99
 
 ### Safe Dereferencing
 
-Use `try_unwrap()` for null-safe pointer access. It returns `None` if the pointer is null (0):
+Use `try_unwrap()` for safe pointer access. It returns `None` if the pointer address is unresolvable (e.g., out of bounds):
 
 ```python
 class node_t(struct):

@@ -58,8 +58,9 @@ class ptr(obj[T]):
         """
         super().__init__(resolver)
         self.wrapper = wrapper
-        self._cached_unwrap: obj | None = None
+        self._cached_unwrap: obj | bytes | None = None
         self._cache_valid: bool = False
+        self._cached_length: int | None = None
 
     def get(self: ptr) -> int:
         """Return the value of the pointer."""
@@ -82,14 +83,15 @@ class ptr(obj[T]):
         """Clear the cached unwrap result."""
         self._cached_unwrap = None
         self._cache_valid = False
+        self._cached_length = None
 
-    def unwrap(self: ptr, length: int | None = None) -> obj:
+    def unwrap(self: ptr, length: int | None = None) -> obj | bytes:
         """Return the object pointed to by the pointer.
 
         Args:
             length: The length of the object in memory this points to.
         """
-        if self._cache_valid:
+        if self._cache_valid and self._cached_length == length:
             return self._cached_unwrap
 
         address = self.get()
@@ -105,15 +107,16 @@ class ptr(obj[T]):
 
         self._cached_unwrap = result
         self._cache_valid = True
+        self._cached_length = length
         return result
 
-    def try_unwrap(self: ptr, length: int | None = None) -> obj | None:
+    def try_unwrap(self: ptr, length: int | None = None) -> obj | bytes | None:
         """Return the object pointed to by the pointer, if it is valid.
 
         Args:
             length: The length of the object in memory this points to.
         """
-        if self._cache_valid:
+        if self._cache_valid and self._cached_length == length:
             return self._cached_unwrap
 
         address = self.get()

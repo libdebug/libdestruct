@@ -19,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def inflater(memory: Sequence, endianness: str = "little") -> Inflater:
     """Return a TypeInflater instance."""
     if not isinstance(memory, Sequence):
-        raise TypeError(f"memory must be a MutableSequence, not {type(memory).__name__}")
+        raise TypeError(f"memory must be a Sequence, not {type(memory).__name__}")
 
     return Inflater(memory, endianness=endianness)
 

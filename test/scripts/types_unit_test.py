@@ -293,6 +293,20 @@ class PtrTest(unittest.TestCase):
         p.value = 12  # now points to offset 12
         self.assertEqual(p.unwrap().value, 20)
 
+    def test_untyped_cache_different_lengths(self):
+        """Untyped ptr cache must differentiate by length parameter."""
+        memory = bytearray(8 + 4)
+        memory[0:8] = (8).to_bytes(8, "little")   # pointer to offset 8
+        memory[8:12] = b"\x01\x02\x03\x04"
+
+        p = ptr(MemoryResolver(memory, 0))
+
+        r1 = p.unwrap(length=1)
+        self.assertEqual(r1, b"\x01")
+
+        r2 = p.unwrap(length=3)
+        self.assertEqual(r2, b"\x01\x02\x03")
+
 
 class FloatTest(unittest.TestCase):
     """c_float and c_double types."""

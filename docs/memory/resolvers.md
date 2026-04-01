@@ -51,7 +51,7 @@ All resolvers implement these methods:
 |---|---|
 | `resolve(size, offset)` | Read `size` bytes starting at the resolved address + offset |
 | `resolve_address()` | Return the absolute address of this resolver |
-| `write(data)` | Write bytes at the resolved address |
+| `modify(size, index, value)` | Write `value` bytes at the resolved address + index |
 | `relative_from_own(offset, size)` | Create a child resolver at a relative offset |
 | `absolute_from_own(address)` | Create a child resolver at an absolute address |
 
@@ -73,8 +73,8 @@ class DebuggerResolver(Resolver):
     def resolve_address(self):
         return self._address
 
-    def write(self, data, offset=0):
-        self.debugger.write_memory(self._address + offset, data)
+    def modify(self, size, index, value):
+        self.debugger.write_memory(self._address + index, value)
 
     # ... implement relative_from_own, absolute_from_own
 ```
