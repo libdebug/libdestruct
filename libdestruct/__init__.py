@@ -19,6 +19,7 @@ from libdestruct.common.bitfield import bitfield_of
 from libdestruct.common.enum import enum, enum_of
 from libdestruct.common.ptr.ptr import ptr
 from libdestruct.common.struct import ptr_to, ptr_to_self, struct
+from libdestruct.common.union import tagged_union, union, union_of
 from libdestruct.common.utils import size_of
 from libdestruct.libdestruct import inflate, inflater
 
@@ -48,4 +49,7 @@ __all__ = [
     "ptr_to_self",
     "size_of",
     "struct",
+    "tagged_union",
+    "union",
+    "union_of",
 ]
