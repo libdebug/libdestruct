@@ -4,14 +4,24 @@ libdestruct supports typed pointers that can be dereferenced to follow reference
 
 ## Defining Pointers in Structs
 
-Use `ptr` with `ptr_to()` to declare a typed pointer field:
+Use `ptr[T]` to declare a typed pointer field:
 
 ```python
-from libdestruct import struct, c_int, ptr_to, inflater
+from libdestruct import struct, c_int, ptr, inflater
 
 class data_t(struct):
     value: c_int
-    next: ptr_to(c_int)
+    next: ptr[c_int]
+```
+
+The legacy `ptr_to()` syntax is also supported:
+
+```python
+from libdestruct import ptr_to
+
+class data_t(struct):
+    value: c_int
+    next: ptr = ptr_to(c_int)
 ```
 
 A pointer occupies 8 bytes (64-bit) and stores an address into the memory buffer.
@@ -42,7 +52,7 @@ Use `try_unwrap()` for null-safe pointer access. It returns `None` if the pointe
 ```python
 class node_t(struct):
     val: c_int
-    next: ptr_to(c_int)
+    next: ptr[c_int]
 
 memory = b"\x0a\x00\x00\x00" + b"\x00" * 8  # val=10, next=null
 node = node_t.from_bytes(memory)
@@ -53,17 +63,7 @@ print(result)  # None
 
 ## Self-Referential Structs
 
-Use `ptr_to_self` for linked lists and trees:
-
-```python
-from libdestruct import struct, c_int, ptr_to_self
-
-class node_t(struct):
-    val: c_int
-    next: ptr_to_self
-```
-
-Or use the forward reference syntax with `ptr["TypeName"]`:
+Use `ptr["TypeName"]` for self-referential structs:
 
 ```python
 from libdestruct import struct, c_int, ptr
@@ -73,7 +73,17 @@ class node_t(struct):
     next: ptr["node_t"]
 ```
 
-Both forms are equivalent. See [Forward References](../advanced/forward_refs.md) for more details.
+The legacy `ptr_to_self()` syntax is also supported:
+
+```python
+from libdestruct import struct, c_int, ptr_to_self
+
+class node_t(struct):
+    val: c_int
+    next: ptr = ptr_to_self()
+```
+
+See [Forward References](../advanced/forward_refs.md) for more details.
 
 ### Linked List Example
 

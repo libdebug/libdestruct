@@ -1,13 +1,16 @@
 # Arrays
 
-Fixed-size arrays are created with `array_of()`.
+Fixed-size arrays can be defined using the `array[T, N]` subscript syntax or the `array_of()` factory function.
 
 ## Defining Arrays
 
 ```python
-from libdestruct import c_int, array_of, inflater
+from libdestruct import c_int, array, array_of, inflater
 
-# An array of 5 c_int values
+# Subscript syntax (preferred)
+int_array_t = array[c_int, 5]
+
+# Legacy factory function
 int_array_t = array_of(c_int, 5)
 ```
 
@@ -76,7 +79,16 @@ raw = bytes(arr)
 
 ## Arrays in Structs
 
-Use `array_of()` as a type annotation:
+Use `array[T, N]` as a type annotation:
+
+```python
+from libdestruct import struct, c_int, array
+
+class matrix_row_t(struct):
+    values: array[c_int, 4]
+```
+
+The legacy `array_of()` syntax is also supported:
 
 ```python
 from libdestruct import struct, c_int, array_of

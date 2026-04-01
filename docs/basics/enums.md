@@ -1,17 +1,35 @@
 # Enums
 
-libdestruct maps integer values in memory to Python `Enum` types using `enum_of()`.
+libdestruct maps integer values in memory to Python `Enum` types using the `enum[T]` subscript syntax or the `enum_of()` factory function.
 
 ## Defining Enums
 
 ```python
 from enum import IntEnum
-from libdestruct import struct, c_int, enum_of
+from libdestruct import struct, c_int, enum
 
 class Color(IntEnum):
     RED = 0
     GREEN = 1
     BLUE = 2
+
+# Subscript syntax (preferred)
+class pixel_t(struct):
+    color: enum[Color]        # defaults to c_int backing type
+    x: c_int
+    y: c_int
+
+# With a custom backing type:
+class pixel2_t(struct):
+    color: enum[Color, c_short]  # 2-byte backing type
+    x: c_int
+    y: c_int
+```
+
+The legacy `enum_of()` syntax is also supported:
+
+```python
+from libdestruct import struct, c_int, enum_of
 
 class pixel_t(struct):
     color: enum_of(Color, c_int)
@@ -19,9 +37,9 @@ class pixel_t(struct):
     y: c_int
 ```
 
-`enum_of(PythonEnum, backing_type)` creates a type that:
+The enum type:
 
-- Reads the raw integer from memory using the backing type (`c_int`)
+- Reads the raw integer from memory using the backing type (`c_int` by default)
 - Converts it to the corresponding `Enum` member (`Color.RED`, etc.)
 
 ## Reading Enum Values
@@ -51,7 +69,7 @@ print(pixel.color.value)  # 99 (raw integer, no error)
 
 ## Standalone Enums
 
-You can also use `enum` directly (without `enum_of`):
+You can also inflate enums directly outside of structs:
 
 ```python
 from libdestruct import enum, inflater
@@ -59,11 +77,12 @@ from libdestruct import enum, inflater
 memory = (2).to_bytes(4, "little")
 lib = inflater(memory)
 
-# The enum() constructor takes a resolver, a Python Enum, and a backing type
+e = lib.inflate(enum[Color], 0)
+print(e.value)  # Color.BLUE
 ```
 
 !!! tip
-    For struct fields, `enum_of()` is the recommended API. It automatically handles type registration and inflation.
+    For struct fields, the `enum[T]` subscript syntax is the recommended API. It automatically handles type registration and inflation.
 
 ## Serialization
 

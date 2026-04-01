@@ -84,8 +84,9 @@ size_of(point_t)  # 8
 x = c_int.from_bytes(b"\x00\x00\x00\x00")
 size_of(x)        # 4
 
-# Works with array field descriptors
-size_of(array_of(c_int, 10))  # 40
+# Works with array types
+size_of(array[c_int, 10])     # 40
+size_of(array_of(c_int, 10))  # 40 (legacy syntax)
 ```
 
 ## Floating-Point Types

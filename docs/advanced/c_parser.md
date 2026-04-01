@@ -64,7 +64,7 @@ node_t = definition_to_type("""
 
 ## Arrays
 
-Fixed-size arrays are converted to `array_of()`:
+Fixed-size arrays are converted to `array[T, N]` types:
 
 ```python
 t = definition_to_type("""

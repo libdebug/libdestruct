@@ -16,9 +16,9 @@ class Node(struct):
 
 At inflation time, the string `"Node"` is resolved to the actual `Node` class. This works because Python's `from __future__ import annotations` (used internally by libdestruct) defers annotation evaluation.
 
-## The `ptr_to_self` Shortcut
+## The Legacy `ptr_to_self` Shortcut
 
-For the common case of a pointer to the enclosing struct, use `ptr_to_self`:
+For the common case of a pointer to the enclosing struct, the legacy `ptr_to_self` syntax is also available:
 
 ```python
 from libdestruct import struct, c_int, ptr_to_self
@@ -28,7 +28,7 @@ class Node(struct):
     next: ptr_to_self
 ```
 
-This is equivalent to `ptr["Node"]` but doesn't require you to spell out the type name.
+This is equivalent to `ptr["Node"]` but doesn't require you to spell out the type name. The `ptr["TypeName"]` syntax is preferred as it is more explicit.
 
 ## Linked List Example
 

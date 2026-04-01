@@ -4,6 +4,35 @@ By default, struct fields are laid out sequentially — each field starts immedi
 
 ## Usage
 
+### Annotated syntax (preferred)
+
+Use `Annotated[T, offset(N)]` to place a field at a specific offset:
+
+```python
+from typing import Annotated
+from libdestruct import struct, c_int, offset
+
+class sparse_t(struct):
+    a: c_int
+    b: Annotated[c_int, offset(16)]
+    c: c_int
+```
+
+This works with any type, including subscript types:
+
+```python
+from libdestruct import struct, c_int, ptr, array, offset
+
+class example_t(struct):
+    a: c_int
+    data: Annotated[array[c_int, 4], offset(0x10)]
+    ref: Annotated[ptr[c_int], offset(0x20)]
+```
+
+### Legacy syntax
+
+The default-value syntax is also supported:
+
 ```python
 from libdestruct import struct, c_int, offset
 
@@ -49,8 +78,8 @@ C compilers often insert padding for alignment. Use `offset()` to match the actu
 
 class data_t(struct):
     flag: c_char
-    value: c_int = offset(4)
-    timestamp: c_long = offset(8)
+    value: Annotated[c_int, offset(4)]
+    timestamp: Annotated[c_long, offset(8)]
 ```
 
 ### Skipping Unknown Fields
@@ -59,13 +88,21 @@ When reverse engineering, you might know the offset of a field but not what come
 
 ```python
 class mystery_t(struct):
-    known_field: c_int = offset(0x40)
-    another_field: c_long = offset(0x100)
+    known_field: Annotated[c_int, offset(0x40)]
+    another_field: Annotated[c_long, offset(0x100)]
 ```
 
 ## Combining with Other Attributes
 
-`offset()` can be combined with `Field` attributes using a tuple:
+With the `Annotated` syntax, `offset()` can be combined with any type naturally:
+
+```python
+class example_t(struct):
+    data: Annotated[ptr[c_int], offset(8)]
+    items: Annotated[array[c_int, 4], offset(0x10)]
+```
+
+With the legacy syntax, `offset()` can be combined with `Field` attributes using a tuple:
 
 ```python
 from libdestruct.common.field import Field

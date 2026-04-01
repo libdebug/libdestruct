@@ -25,6 +25,7 @@ Memory is accessed through an `inflater`, which wraps a `bytes` or `bytearray` b
 ### Imports
 
 ```python
+from typing import Annotated
 from libdestruct import (
     inflater,          # memory wrapper
     struct,            # struct base class
@@ -33,10 +34,10 @@ from libdestruct import (
     c_float, c_double, # IEEE 754 floats (32/64-bit)
     c_str,             # null-terminated C string
     ptr,               # 8-byte pointer
-    ptr_to,            # typed pointer field descriptor
-    ptr_to_self,       # self-referential pointer field descriptor
-    array_of,          # fixed-size array field descriptor
-    enum_of,           # enum field descriptor
+    ptr_to,            # typed pointer field descriptor (legacy)
+    ptr_to_self,       # self-referential pointer field descriptor (legacy)
+    array, array_of,   # array type + field descriptor
+    enum, enum_of,     # enum type + field descriptor
     bitfield_of,       # bitfield descriptor
     union,             # union annotation type
     union_of,          # plain union field descriptor
@@ -131,9 +132,21 @@ player = player_t.from_bytes(memory)
 ```python
 class node_t(struct):
     value: c_int
-    next: ptr = ptr_to_self()  # pointer to own type
+    next: ptr["node_t"]       # pointer to own type (forward ref)
 
 # Typed pointer to another type:
+class container_t(struct):
+    data: c_int
+    ref: ptr[c_long]          # subscript syntax (preferred)
+```
+
+Legacy syntax with `ptr_to()` and `ptr_to_self()` is still supported:
+
+```python
+class node_t(struct):
+    value: c_int
+    next: ptr = ptr_to_self()
+
 class container_t(struct):
     data: c_int
     ref: ptr = ptr_to(c_long)
@@ -176,7 +189,15 @@ class tree_t(struct):
 ```python
 class packet_t(struct):
     length: c_int
-    data: array_of(c_int, 8)  # fixed array of 8 c_int
+    data: array[c_int, 8]     # subscript syntax (preferred)
+```
+
+Legacy syntax with `array_of()` is still supported:
+
+```python
+class packet_t(struct):
+    length: c_int
+    data: array_of(c_int, 8)
 ```
 
 Access array elements:
@@ -199,6 +220,19 @@ class Color(IntEnum):
     GREEN = 1
     BLUE = 2
 
+class pixel_t(struct):
+    color: enum[Color]        # subscript syntax (preferred, defaults to c_int backing)
+    alpha: c_int
+
+# With a custom backing type:
+class pixel_t(struct):
+    color: enum[Color, c_short]  # 2-byte backing type
+    alpha: c_int
+```
+
+Legacy syntax with `enum_of()` is still supported:
+
+```python
 class pixel_t(struct):
     color: c_int = enum_of(Color)
     alpha: c_int
@@ -275,9 +309,28 @@ class wide_t(struct):
 ### Explicit Field Offsets
 
 ```python
+from typing import Annotated
+
 class sparse_t(struct):
     a: c_int
-    b: c_int = offset(0x10)  # b starts at byte offset 0x10
+    b: Annotated[c_int, offset(0x10)]  # Annotated syntax (preferred)
+```
+
+This works with any type, including subscript types:
+
+```python
+class example_t(struct):
+    a: c_int
+    data: Annotated[array[c_int, 4], offset(0x10)]
+    ref: Annotated[ptr[c_int], offset(0x20)]
+```
+
+Legacy syntax with default values is still supported:
+
+```python
+class sparse_t(struct):
+    a: c_int
+    b: c_int = offset(0x10)
 ```
 
 ### Nested Structs
@@ -374,7 +427,7 @@ class header_t(struct):
     magic: c_uint
     version: c_int
     num_entries: c_int
-    entries_ptr: ptr = ptr_to(entry_t)
+    entries_ptr: ptr[entry_t]
 
 with open("file.bin", "rb") as f:
     data = bytearray(f.read())

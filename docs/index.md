@@ -72,9 +72,9 @@ print(player.health.value)  # 100
 
 - **Pythonic API** — define structs with type annotations, access fields as attributes
 - **C type system** — `c_int`, `c_uint`, `c_long`, `c_ulong`, `c_char`, `c_str`
-- **Pointers** — typed pointers with `ptr`, automatic dereferencing with `unwrap()`
-- **Arrays** — fixed-size arrays with `array_of()`
-- **Enums** — map integer values to Python `Enum` types
+- **Pointers** — typed pointers with `ptr[T]`, automatic dereferencing with `unwrap()`
+- **Arrays** — fixed-size arrays with `array[T, N]`
+- **Enums** — map integer values to Python `Enum` types with `enum[T]`
 - **Nested structs** — compose structs within structs
 - **Self-referential types** — forward references via `ptr["TypeName"]`
 - **C struct parser** — parse C struct definitions directly with `definition_to_type()`
