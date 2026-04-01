@@ -93,6 +93,7 @@ class struct_impl(struct):
             )
 
             if explicit_offset is not None:
+                current_offset += bf_tracker.flush()
                 if explicit_offset < current_offset:
                     raise ValueError("Offset must be greater than the current size.")
                 current_offset = explicit_offset
@@ -191,6 +192,7 @@ class struct_impl(struct):
 
             has_explicit_offset = explicit_offset is not None
             if has_explicit_offset:
+                size += bf_tracker.flush()
                 if explicit_offset < size:
                     raise ValueError("Offset must be greater than the current size.")
                 size = explicit_offset

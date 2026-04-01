@@ -9,7 +9,8 @@ from enum import IntEnum
 
 from typing import Annotated
 
-from libdestruct import array, c_int, c_long, c_short, c_uint, inflater, offset, struct, ptr, ptr_to_self, array_of, enum, enum_of
+from libdestruct import array, c_int, c_long, c_short, c_uint, c_ushort, inflater, offset, struct, ptr, ptr_to_self, array_of, enum, enum_of, size_of, bitfield_of
+from libdestruct.common.union import union, union_of, tagged_union
 
 
 class StructMemberCollisionTest(unittest.TestCase):
@@ -417,6 +418,110 @@ class StructEqualityTest(unittest.TestCase):
 
         s = s_t.from_bytes(b"\x01\x00\x00\x00")
         self.assertIs(s.__eq__(42), NotImplemented)
+
+
+class BitfieldExplicitOffsetTest(unittest.TestCase):
+    """Explicit offset after bitfields must flush the pending bitfield group first."""
+
+    def test_offset_after_bitfield_size(self):
+        """Struct size must be correct when offset() follows bitfield fields."""
+        class s_t(struct):
+            a: c_uint = bitfield_of(c_uint, 1)
+            b: c_int = offset(8)
+
+        # a is a 1-bit bitfield in a 4-byte c_uint group at offset 0.
+        # b is at explicit offset 8 with size 4.
+        # Total size: 8 + 4 = 12
+        self.assertEqual(size_of(s_t), 12)
+
+    def test_offset_after_bitfield_read(self):
+        """Values must be read correctly when offset() follows bitfield fields."""
+        import struct as pystruct
+
+        class s_t(struct):
+            a: c_uint = bitfield_of(c_uint, 1)
+            b: c_int = offset(8)
+
+        memory = bytearray(12)
+        memory[0:4] = pystruct.pack("<I", 1)   # a = 1
+        memory[8:12] = pystruct.pack("<i", 42)  # b = 42
+
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.a.value, 1)
+        self.assertEqual(s.b.value, 42)
+
+
+class UnionAlignmentTest(unittest.TestCase):
+    """Union fields in aligned structs must use member-derived alignment."""
+
+    def test_plain_union_alignment_non_power_of_two_size(self):
+        """Union of a 12-byte packed struct and c_long: size=12 but alignment must be 8 (from c_long)."""
+        class triple_t(struct):
+            a: c_int
+            b: c_int
+            c: c_int
+
+        # triple_t is a packed 12-byte struct with alignment 1
+        # c_long is 8 bytes with alignment 8
+        # union size = 12, but alignment should be 8 (max member alignment)
+        class s_t(struct):
+            _aligned_ = True
+            tag: c_short  # 2 bytes, align 2
+            data: union = union_of({"t": triple_t, "l": c_long})
+
+        # tag at offset 0 (2 bytes)
+        # data alignment = 8 → data at offset 8
+        # data size = 12
+        # struct max alignment = 8 → total = _align_offset(20, 8) = 24
+        self.assertEqual(size_of(s_t), 24)
+
+    def test_tagged_union_alignment_non_power_of_two_size(self):
+        """Tagged union of a 12-byte packed struct and c_long: alignment must be 8."""
+        class triple_t(struct):
+            a: c_int
+            b: c_int
+            c: c_int
+
+        class s_t(struct):
+            _aligned_ = True
+            tag: c_int  # 4 bytes, align 4
+            data: union = tagged_union("tag", {0: triple_t, 1: c_long})
+
+        # tag at offset 0 (4 bytes)
+        # data alignment = 8 → data at offset 8
+        # data size = 12
+        # struct max alignment = 8 → total = _align_offset(20, 8) = 24
+        self.assertEqual(size_of(s_t), 24)
+
+
+class SubscriptedEnumUnsignedTest(unittest.TestCase):
+    """enum[E, unsigned_backing] must preserve signedness."""
+
+    def test_enum_unsigned_backing(self):
+        """enum[E, c_ushort] should correctly decode values exceeding signed range."""
+        from enum import IntEnum
+
+        class E(IntEnum):
+            MAX_VAL = 0xFFFF
+
+        class s_t(struct):
+            val: enum[E, c_ushort]
+
+        memory = (0xFFFF).to_bytes(2, "little")
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.val.value, E.MAX_VAL)
+
+    def test_enum_unsigned_size(self):
+        """enum[E, c_ushort] struct should be 2 bytes."""
+        from enum import IntEnum
+
+        class E(IntEnum):
+            A = 0
+
+        class s_t(struct):
+            val: enum[E, c_ushort]
+
+        self.assertEqual(size_of(s_t), 2)
 
 
 if __name__ == "__main__":

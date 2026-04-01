@@ -42,7 +42,7 @@ def _subscripted_enum_handler(
         return None
     python_enum = args[0]
     backing_type = args[1] if len(args) > 1 else c_int
-    field = IntEnumField(python_enum, size=backing_type.size)
+    field = IntEnumField(python_enum, backing_type=backing_type)
     return field.inflate
 
 

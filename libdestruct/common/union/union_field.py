@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from libdestruct.common.field import Field
 from libdestruct.common.union.union import union
-from libdestruct.common.utils import size_of
+from libdestruct.common.utils import alignment_of, size_of
 
 if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.backing.resolver import Resolver
@@ -41,3 +41,7 @@ class UnionField(Field):
     def get_size(self: UnionField) -> int:
         """Return the size of the union (max of all variant sizes)."""
         return max(size_of(variant) for variant in self.variants.values())
+
+    def get_alignment(self: UnionField) -> int:
+        """Return the alignment of the union (max of all variant alignments)."""
+        return max(alignment_of(variant) for variant in self.variants.values())
