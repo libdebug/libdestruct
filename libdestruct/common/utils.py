@@ -81,11 +81,16 @@ def alignment_of(item: obj | type[obj]) -> int:
     if isinstance(item, type) and "alignment" in item.__dict__ and isinstance(item.__dict__["alignment"], int):
         return item.__dict__["alignment"]
 
-    # Field descriptors
+    # Field descriptors — for array fields, alignment comes from the element type
     if isinstance(item, Field):
+        if hasattr(item, "item"):
+            return alignment_of(item.item)
         return _alignment_from_size(item.get_size())
     if is_field_bound_method(item):
-        return _alignment_from_size(item.__self__.get_size())
+        field = item.__self__
+        if hasattr(field, "item"):
+            return alignment_of(field.item)
+        return _alignment_from_size(field.get_size())
 
     # Derive from size for power-of-2 sized types
     try:

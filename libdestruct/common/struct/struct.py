@@ -34,4 +34,6 @@ class struct(obj):
         """Create a struct from a serialized representation."""
         type_inflater = inflater(data, endianness=endianness)
 
-        return type_inflater.inflate(cls, 0)
+        result = type_inflater.inflate(cls, 0)
+        result.freeze()
+        return result

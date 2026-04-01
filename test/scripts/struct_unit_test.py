@@ -198,6 +198,34 @@ class StructFreezeTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             test.a.value = 999
 
+    def test_frozen_struct_value_not_none(self):
+        """Frozen struct .value should not be None."""
+        class test_t(struct):
+            a: c_int
+
+        memory = bytearray(b"\x2a\x00\x00\x00")
+        lib = inflater(memory)
+        test = lib.inflate(test_t, 0)
+        test.freeze()
+        self.assertIsNotNone(test.value)
+
+    def test_from_bytes_struct_is_frozen(self):
+        """struct.from_bytes should return a frozen struct, like obj.from_bytes."""
+        class test_t(struct):
+            a: c_int
+
+        test = test_t.from_bytes(b"\x2a\x00\x00\x00")
+        self.assertTrue(test._frozen)
+
+    def test_from_bytes_struct_rejects_writes(self):
+        """struct.from_bytes result should reject writes with ValueError, not TypeError."""
+        class test_t(struct):
+            a: c_int
+
+        test = test_t.from_bytes(b"\x2a\x00\x00\x00")
+        with self.assertRaises(ValueError):
+            test.a.value = 99
+
 
 class ForwardRefPtrTest(unittest.TestCase):
     """Forward reference ptr["Type"] syntax."""

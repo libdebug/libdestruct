@@ -234,7 +234,8 @@ class struct_impl(struct):
         """Return the serialized representation of the struct, including padding."""
         if self._frozen:
             return self._frozen_struct_bytes
-        return self.resolver.resolve(size_of(self), 0)
+        resolver = object.__getattribute__(self, "resolver")
+        return resolver.resolve(size_of(self), 0)
 
     def to_dict(self: struct_impl) -> dict[str, object]:
         """Return a JSON-serializable dict of field names to values."""
@@ -253,12 +254,13 @@ class struct_impl(struct):
 
     def freeze(self: struct_impl) -> None:
         """Freeze the struct, capturing the full byte representation including padding."""
-        self._frozen_struct_bytes = self.resolver.resolve(size_of(self), 0)
+        resolver = object.__getattribute__(self, "resolver")
+        self._frozen_struct_bytes = resolver.resolve(size_of(self), 0)
 
         for member in self._members.values():
             member.freeze()
 
-        self._frozen = True
+        super().freeze()
 
     def to_str(self: struct_impl, indent: int = 0) -> str:
         """Return a string representation of the struct."""

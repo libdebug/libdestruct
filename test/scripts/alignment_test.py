@@ -241,6 +241,46 @@ class AlignedStructSerializationTest(unittest.TestCase):
         self.assertEqual(s2.b.value, 42)
 
 
+class ArrayAlignmentTest(unittest.TestCase):
+    def test_alignment_of_array_field(self):
+        """alignment_of(array_of(c_int, N)) should be 4 (element alignment), not 1."""
+        from libdestruct import array_of
+
+        arr = array_of(c_int, 3)
+        self.assertEqual(alignment_of(arr), 4)
+
+    def test_aligned_struct_with_array(self):
+        """Array field in aligned struct should be aligned to element alignment."""
+        from libdestruct import array_of
+
+        class s_t(struct):
+            _aligned_ = True
+            a: c_char
+            arr: list[c_int] = array_of(c_int, 3)
+
+        # a at 0 (1 byte), padding 3, arr at 4 (12 bytes) = 16, tail padded to 4 = 16
+        self.assertEqual(size_of(s_t), 16)
+
+    def test_aligned_struct_with_array_read(self):
+        """Values read correctly from aligned array in struct."""
+        from libdestruct import array_of
+
+        class s_t(struct):
+            _aligned_ = True
+            a: c_char
+            arr: list[c_int] = array_of(c_int, 3)
+
+        memory = pystruct.pack("<b", 0x41) + b"\x00" * 3
+        for v in [10, 20, 30]:
+            memory += pystruct.pack("<i", v)
+
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.a.value, 0x41)
+        self.assertEqual(s.arr[0].value, 10)
+        self.assertEqual(s.arr[1].value, 20)
+        self.assertEqual(s.arr[2].value, 30)
+
+
 class BitfieldAlignmentTest(unittest.TestCase):
     def test_bitfield_alignment_padding(self):
         """Bitfield backing type is aligned in aligned structs."""
