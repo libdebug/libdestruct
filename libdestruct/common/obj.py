@@ -38,6 +38,8 @@ class obj(ABC, Generic[T]):
             resolver: The resolver for the value of this object.
         """
         self.resolver = resolver
+        if resolver is not None:
+            self.endianness = resolver.endianness
 
     @property
     def address(self: obj) -> int:
@@ -57,11 +59,11 @@ class obj(ABC, Generic[T]):
         """Serialize the object to bytes."""
 
     @classmethod
-    def from_bytes(cls: type[obj], data: bytes) -> obj:
+    def from_bytes(cls: type[obj], data: bytes, endianness: str = "little") -> obj:
         """Deserialize the object from bytes."""
         from libdestruct.libdestruct import inflater
 
-        lib = inflater(data)
+        lib = inflater(data, endianness=endianness)
         item = lib.inflate(cls, 0)
         item.freeze()
         return item

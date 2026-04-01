@@ -16,21 +16,22 @@ if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.common.obj import obj
 
 
-def inflater(memory: Sequence) -> Inflater:
+def inflater(memory: Sequence, endianness: str = "little") -> Inflater:
     """Return a TypeInflater instance."""
     if not isinstance(memory, Sequence):
         raise TypeError(f"memory must be a MutableSequence, not {type(memory).__name__}")
 
-    return Inflater(memory)
+    return Inflater(memory, endianness=endianness)
 
 
-def inflate(item: type, memory: Sequence, address: int | Resolver) -> obj:
+def inflate(item: type, memory: Sequence, address: int | Resolver, endianness: str = "little") -> obj:
     """Inflate a memory-referencing type.
 
     Args:
         item: The type to inflate.
         memory: The memory view, which can be mutable or immutable.
         address: The address of the object in the memory view.
+        endianness: The byte order ("little" or "big").
 
     Returns:
         The inflated object.
@@ -38,4 +39,4 @@ def inflate(item: type, memory: Sequence, address: int | Resolver) -> obj:
     if not isinstance(address, int) and not isinstance(address, Resolver):
         raise TypeError(f"address must be an int or a Resolver, not {type(address).__name__}")
 
-    return inflater(memory).inflate(item, address)
+    return inflater(memory, endianness=endianness).inflate(item, address)

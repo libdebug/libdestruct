@@ -21,9 +21,10 @@ if TYPE_CHECKING:  # pragma: no cover
 class Inflater:
     """The memory manager, which inflates any memory-referencing type."""
 
-    def __init__(self: Inflater, memory: MutableSequence) -> None:
+    def __init__(self: Inflater, memory: MutableSequence, endianness: str = "little") -> None:
         """Initialize the memory manager."""
         self.memory = memory
+        self.endianness = endianness
         self.type_registry = TypeRegistry()
 
     def inflate(self: Inflater, item: type, address: int | Resolver) -> obj:
@@ -38,6 +39,6 @@ class Inflater:
         """
         if isinstance(address, int):
             # Create a memory resolver from the address
-            address = MemoryResolver(self.memory, address)
+            address = MemoryResolver(self.memory, address, self.endianness)
 
         return self.type_registry.inflater_for(item)(address)

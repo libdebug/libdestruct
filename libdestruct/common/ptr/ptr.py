@@ -25,12 +25,13 @@ class _ArithmeticResolver(Resolver):
     def __init__(self: _ArithmeticResolver, original: Resolver, address: int) -> None:
         self._original = original
         self._address = address
+        self.endianness = original.endianness
 
     def resolve_address(self: _ArithmeticResolver) -> int:
         return self._address
 
     def resolve(self: _ArithmeticResolver, size: int, _: int) -> bytes:
-        return self._address.to_bytes(size, "little")
+        return self._address.to_bytes(size, self.endianness)
 
     def modify(self: _ArithmeticResolver, _size: int, _index: int, _value: bytes) -> None:
         raise RuntimeError("Cannot modify a synthetic pointer.")
@@ -98,10 +99,9 @@ class ptr(obj[T]):
                 raise ValueError("Length is not supported when unwrapping a pointer to a wrapper object.")
 
             result = self.wrapper(self.resolver.absolute_from_own(address))
-        elif not length:
-            result = self.resolver.resolve(1, 0)
         else:
-            result = self.resolver.resolve(length, 0)
+            target_resolver = self.resolver.absolute_from_own(address)
+            result = target_resolver.resolve(length or 1, 0)
 
         self._cached_unwrap = result
         self._cache_valid = True

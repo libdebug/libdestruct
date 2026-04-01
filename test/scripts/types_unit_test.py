@@ -198,6 +198,18 @@ class PtrTest(unittest.TestCase):
 
         self.assertEqual((p + 2)[0].value, 3)
 
+    def test_untyped_unwrap_reads_target(self):
+        """Untyped pointer unwrap reads bytes at the target address, not the pointer's own bytes."""
+        memory = bytearray(16)
+        # Pointer at offset 0 with value 8 (points to offset 8)
+        memory[0:8] = (8).to_bytes(8, "little")
+        # Target byte at offset 8
+        memory[8] = 0xAB
+
+        p = ptr(MemoryResolver(memory, 0))
+        result = p.unwrap()
+        self.assertEqual(result, bytes([0xAB]))
+
     def test_unwrap_cached(self):
         """Two unwrap() calls return the same object."""
         class test_t(struct):

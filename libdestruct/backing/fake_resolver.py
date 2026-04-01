@@ -12,12 +12,13 @@ from libdestruct.backing.resolver import Resolver
 class FakeResolver(Resolver):
     """A class that can resolve elements in a simulated memory storage."""
 
-    def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0) -> None:
+    def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0, endianness: str = "little") -> None:
         """Initializes a basic fake resolver."""
         self.memory = memory if memory is not None else {}
         self.address = address
         self.parent = None
         self.offset = None
+        self.endianness = endianness
 
     def resolve_address(self: FakeResolver) -> int:
         """Resolves self's address, mainly used by children to determine their own address."""
@@ -28,14 +29,14 @@ class FakeResolver(Resolver):
 
     def relative_from_own(self: FakeResolver, address_offset: int, _: int) -> FakeResolver:
         """Creates a resolver that references a parent, such that a change in the parent is propagated on the child."""
-        new_resolver = FakeResolver(self.memory, None)
+        new_resolver = FakeResolver(self.memory, None, self.endianness)
         new_resolver.parent = self
         new_resolver.offset = address_offset
         return new_resolver
 
     def absolute_from_own(self: FakeResolver, address: int) -> FakeResolver:
         """Creates a resolver that has an absolute reference to an object, from the parent's view."""
-        return FakeResolver(self.memory, address)
+        return FakeResolver(self.memory, address, self.endianness)
 
     def resolve(self: FakeResolver, size: int, _: int) -> bytes:
         """Resolves itself, providing the bytes it references for the specified size and index."""

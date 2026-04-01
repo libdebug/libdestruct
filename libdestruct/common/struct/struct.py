@@ -30,8 +30,8 @@ class struct(obj):
         return type_impl(*args, **kwargs)
 
     @classmethod
-    def from_bytes(cls: type[struct], data: bytes) -> struct_impl:
+    def from_bytes(cls: type[struct], data: bytes, endianness: str = "little") -> struct_impl:
         """Create a struct from a serialized representation."""
-        type_inflater = inflater(data)
+        type_inflater = inflater(data, endianness=endianness)
 
         return type_inflater.inflate(cls, 0)
