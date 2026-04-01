@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from types import GenericAlias
 from typing import TYPE_CHECKING
 
 from libdestruct.common.obj import obj
@@ -19,6 +20,12 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class enum(obj):
     """A generic enum."""
+
+    def __class_getitem__(cls, params: tuple) -> GenericAlias:
+        """Support enum[MyEnum] and enum[MyEnum, c_short] subscript syntax."""
+        if not isinstance(params, tuple):
+            params = (params,)
+        return GenericAlias(cls, params)
 
     python_enum: type[Enum]
     """The backing Python enum."""

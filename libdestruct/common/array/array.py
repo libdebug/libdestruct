@@ -7,12 +7,19 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from types import GenericAlias
 
 from libdestruct.common.obj import obj
 
 
 class array(obj):
     """An array of objects."""
+
+    def __class_getitem__(cls, params: tuple) -> GenericAlias:
+        """Support array[c_int, 3] subscript syntax."""
+        if not isinstance(params, tuple):
+            params = (params,)
+        return GenericAlias(cls, params)
 
     @abstractmethod
     def count(self: array) -> int:

@@ -7,7 +7,7 @@
 import unittest
 from enum import IntEnum
 
-from libdestruct import c_int, c_long, c_uint, inflater, struct, ptr, ptr_to_self, array_of, enum, enum_of
+from libdestruct import array, c_int, c_long, c_short, c_uint, inflater, struct, ptr, ptr_to_self, array_of, enum, enum_of
 
 
 class StructMemberCollisionTest(unittest.TestCase):
@@ -262,6 +262,96 @@ class ForwardRefPtrTest(unittest.TestCase):
 
         node = TreeNode.from_bytes(memory)
         self.assertEqual(node.data.value, 42)
+
+
+class SubscriptSyntaxTest(unittest.TestCase):
+    """Test the subscript syntax: enum[T], array[T, N], ptr[T]."""
+
+    def test_enum_subscript(self):
+        """enum[MyEnum] works as a type annotation for struct fields."""
+        class Color(IntEnum):
+            RED = 0
+            GREEN = 1
+            BLUE = 2
+
+        class s_t(struct):
+            color: enum[Color]
+
+        memory = (1).to_bytes(4, "little")
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.color.value, Color.GREEN)
+
+    def test_enum_subscript_custom_backing(self):
+        """enum[MyEnum, c_short] uses a custom backing type."""
+        class Status(IntEnum):
+            OFF = 0
+            ON = 1
+
+        class s_t(struct):
+            status: enum[Status, c_short]
+
+        memory = (1).to_bytes(2, "little")
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.status.value, Status.ON)
+        from libdestruct import size_of
+        self.assertEqual(size_of(s_t), 2)
+
+    def test_array_subscript(self):
+        """array[c_int, 3] works as a type annotation for struct fields."""
+        class s_t(struct):
+            data: array[c_int, 3]
+
+        memory = b""
+        for v in [10, 20, 30]:
+            memory += v.to_bytes(4, "little")
+
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.data[0].value, 10)
+        self.assertEqual(s.data[1].value, 20)
+        self.assertEqual(s.data[2].value, 30)
+
+    def test_array_subscript_size(self):
+        """array[c_int, 3] has correct size."""
+        class s_t(struct):
+            data: array[c_int, 3]
+
+        from libdestruct import size_of
+        self.assertEqual(size_of(s_t), 12)
+
+    def test_ptr_subscript(self):
+        """ptr[T] works as a type annotation (already supported)."""
+        class s_t(struct):
+            val: c_int
+            ref: ptr[c_int]
+
+        memory = b""
+        memory += (42).to_bytes(4, "little")
+        memory += (0).to_bytes(8, "little")
+
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.val.value, 42)
+
+    def test_mixed_subscript_struct(self):
+        """Struct mixing all subscript syntaxes."""
+        class Direction(IntEnum):
+            UP = 0
+            DOWN = 1
+
+        class s_t(struct):
+            dir: enum[Direction]
+            coords: array[c_int, 2]
+            next: ptr["s_t"]
+
+        memory = b""
+        memory += (1).to_bytes(4, "little")          # dir = DOWN
+        memory += (10).to_bytes(4, "little")          # coords[0]
+        memory += (20).to_bytes(4, "little")          # coords[1]
+        memory += (0).to_bytes(8, "little")           # next = null
+
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.dir.value, Direction.DOWN)
+        self.assertEqual(s.coords[0].value, 10)
+        self.assertEqual(s.coords[1].value, 20)
 
 
 class StructEqualityTest(unittest.TestCase):
