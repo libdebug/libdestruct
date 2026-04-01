@@ -211,6 +211,10 @@ class struct_impl(struct):
         """Return the serialized representation of the struct."""
         return b"".join(member.to_bytes() for member in self._members.values())
 
+    def to_dict(self: struct_impl) -> dict[str, object]:
+        """Return a JSON-serializable dict of field names to values."""
+        return {name: member.to_dict() for name, member in self._members.items()}
+
     def hexdump(self: struct_impl) -> str:
         """Return a hex dump of this struct's bytes with field annotations."""
         annotations = {}

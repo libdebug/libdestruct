@@ -60,6 +60,10 @@ class array_impl(array):
         """Set the array from a list."""
         raise NotImplementedError("Cannot set items in an array.")
 
+    def to_dict(self: array_impl) -> list[object]:
+        """Return a JSON-serializable list of element values."""
+        return [elem.to_dict() for elem in self]
+
     def to_bytes(self: array_impl) -> bytes:
         """Return the serialized representation of the array."""
         return b"".join(bytes(x) for x in self)

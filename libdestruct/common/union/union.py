@@ -66,6 +66,14 @@ class union(obj):
             raise RuntimeError("Cannot set the value of a union without an active variant.")
         self._variant._set(value)
 
+    def to_dict(self: union) -> object:
+        """Return a JSON-serializable representation of the union."""
+        if self._variant is not None:
+            return self._variant.to_dict()
+        if self._variants:
+            return {name: v.to_dict() for name, v in self._variants.items()}
+        return None
+
     def to_bytes(self: union) -> bytes:
         """Return the full union-sized region as bytes."""
         if self._frozen_bytes is not None:

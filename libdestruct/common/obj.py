@@ -181,6 +181,10 @@ class obj(ABC, Generic[T]):
             return NotImplemented
         return pair[0] >= pair[1]
 
+    def to_dict(self: obj) -> object:
+        """Return a JSON-serializable representation of the object."""
+        return self.value
+
     def hexdump(self: obj) -> str:
         """Return a hex dump of this object's bytes."""
         address = self.address if not self._frozen else 0

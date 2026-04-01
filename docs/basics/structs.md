@@ -104,6 +104,31 @@ print(repr(header))
 # }
 ```
 
+## Dict / JSON Export
+
+Use `to_dict()` to get a JSON-serializable dictionary of field names to values:
+
+```python
+header = header_t.from_bytes(data)
+print(header.to_dict())
+# {"magic": 3735928559, "version": 1, "size": 4096}
+```
+
+Nested structs produce nested dicts, arrays become lists:
+
+```python
+import json
+
+rect = rect_t.from_bytes(data)
+print(json.dumps(rect.to_dict(), indent=2))
+# {
+#   "origin": {"x": 0, "y": 0},
+#   "size": {"x": 0, "y": 0}
+# }
+```
+
+`to_dict()` also works on individual fields — primitives return their Python value, enums return their integer value.
+
 ## Equality
 
 Two struct instances are equal if they have the same members with the same values:

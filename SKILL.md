@@ -290,6 +290,18 @@ print(player.hexdump())
 
 Struct hexdumps annotate lines with field names. Primitive hexdumps show raw bytes.
 
+### Dict / JSON Export
+
+```python
+point = point_t.from_bytes(memory)
+point.to_dict()  # {"x": 10, "y": 20}
+
+import json
+json.dumps(entity.to_dict())  # nested structs produce nested dicts
+```
+
+`to_dict()` works on all types: primitives return their value, structs return `{name: value}` dicts, arrays return lists, unions return variant values, enums return their int value.
+
 ### Freeze / Diff / Reset
 
 ```python
