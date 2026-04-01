@@ -18,7 +18,7 @@ from libdestruct.common.hexdump import format_hexdump
 from libdestruct.common.obj import obj
 from libdestruct.common.struct import struct
 from libdestruct.common.type_registry import TypeRegistry
-from libdestruct.common.utils import iterate_annotation_chain, size_of
+from libdestruct.common.utils import _align_offset, alignment_of, iterate_annotation_chain, size_of
 
 
 class struct_impl(struct):
@@ -79,8 +79,12 @@ class struct_impl(struct):
     ) -> None:
         current_offset = 0
         bf_tracker = BitfieldTracker()
+        aligned = getattr(reference_type, "_aligned_", False)
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
+            if name == "_aligned_":
+                continue
+
             resolved_type, bitfield_field, explicit_offset = self._resolve_field(
                 name, annotation, reference, inflater, reference_type,
             )
@@ -97,6 +101,8 @@ class struct_impl(struct):
                 current_offset += offset_delta
             else:
                 current_offset += bf_tracker.flush()
+                if aligned and explicit_offset is None:
+                    current_offset = _align_offset(current_offset, alignment_of(resolved_type))
                 result = resolved_type(resolver.relative_from_own(current_offset, 0))
                 current_offset += size_of(result)
 
@@ -154,11 +160,17 @@ class struct_impl(struct):
     def compute_own_size(cls: type[struct_impl], reference_type: type) -> None:
         """Compute the size of the struct."""
         size = 0
+        max_alignment = 1
         bf_tracker = BitfieldTracker()
+        aligned = getattr(reference_type, "_aligned_", False)
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
+            if name == "_aligned_":
+                continue
+
             bitfield_field = None
             attribute = None
+            has_explicit_offset = False
 
             if name in reference.__dict__:
                 attrs = getattr(reference, name)
@@ -174,6 +186,7 @@ class struct_impl(struct):
                     elif isinstance(attr, Field):
                         attribute = cls._inflater.inflater_for((attr, annotation), (None, cls))(None)
                     elif isinstance(attr, OffsetAttribute):
+                        has_explicit_offset = True
                         offset = attr.offset
                         if offset < size:
                             raise ValueError("Offset must be greater than the current size.")
@@ -190,10 +203,21 @@ class struct_impl(struct):
                 size += bf_tracker.compute_size(bitfield_field)
             else:
                 size += bf_tracker.flush()
+                if aligned and not has_explicit_offset:
+                    field_align = alignment_of(attribute)
+                    max_alignment = max(max_alignment, field_align)
+                    size = _align_offset(size, field_align)
                 size += size_of(attribute)
 
         size += bf_tracker.flush()
+
+        if aligned:
+            if isinstance(aligned, int) and aligned is not True:
+                max_alignment = max(max_alignment, aligned)
+            size = _align_offset(size, max_alignment)
+
         cls.size = size
+        cls.alignment = max_alignment if aligned else 1
 
     @property
     def address(self: struct_impl) -> int:

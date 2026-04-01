@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from types import MethodType
 from typing import TYPE_CHECKING, Any, ForwardRef
@@ -54,6 +55,58 @@ def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
         return item_or_inflater.size
 
     raise ValueError(f"Cannot determine the size of {item_or_inflater}")
+
+
+def alignment_of(item: obj | type[obj]) -> int:
+    """Return the natural alignment of a type or instance.
+
+    For primitive types, alignment equals their size (1, 2, 4, or 8).
+    For struct types, alignment is computed as the max of member alignments.
+    For packed structs (the default), alignment is 1.
+    """
+    # For uninflated struct types, trigger inflation first so alignment is computed
+    if isinstance(item, type) and not hasattr(item, "size") and not hasattr(item, "_type_impl"):
+        with contextlib.suppress(ValueError, TypeError):
+            size_of(item)
+
+    # Struct types with computed alignment
+    if isinstance(item, type) and hasattr(item, "_type_impl"):
+        impl = item._type_impl
+        if hasattr(impl, "alignment"):
+            return impl.alignment
+
+    # Explicit alignment attribute (struct_impl instances, arrays, etc.)
+    if not isinstance(item, type) and hasattr(item, "alignment") and isinstance(item.alignment, int):
+        return item.alignment
+    if isinstance(item, type) and "alignment" in item.__dict__ and isinstance(item.__dict__["alignment"], int):
+        return item.__dict__["alignment"]
+
+    # Field descriptors
+    if isinstance(item, Field):
+        return _alignment_from_size(item.get_size())
+    if is_field_bound_method(item):
+        return _alignment_from_size(item.__self__.get_size())
+
+    # Derive from size for power-of-2 sized types
+    try:
+        s = size_of(item)
+        return _alignment_from_size(s)
+    except (ValueError, TypeError):
+        return 1
+
+
+def _alignment_from_size(s: int) -> int:
+    """Derive alignment from size: return size if it's a power of 2 and <= 8, else 1."""
+    max_alignment = 8
+    if s > 0 and (s & (s - 1)) == 0 and s <= max_alignment:
+        return s
+    return 1
+
+
+def _align_offset(offset: int, alignment: int) -> int:
+    """Round up offset to the next multiple of alignment."""
+    remainder = offset % alignment
+    return offset + (alignment - remainder) if remainder else offset
 
 
 def _resolve_annotation(annotation: Any, defining_class: type) -> Any:

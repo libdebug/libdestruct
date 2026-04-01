@@ -67,4 +67,5 @@ nav:
     - Forward References: advanced/forward_refs.md
     - Hex Dump: advanced/hexdump.md
     - Unions: advanced/tagged_unions.md
+    - Struct Alignment: advanced/alignment.md
     - Field Offsets: advanced/offset.md

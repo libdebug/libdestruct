@@ -43,6 +43,7 @@ from libdestruct import (
     tagged_union,      # tagged union field descriptor
     offset,            # explicit field offset
     size_of,           # get size in bytes of any type/instance/field
+    alignment_of,      # get natural alignment of any type/instance
 )
 ```
 
@@ -244,6 +245,32 @@ class message_t(struct):
 ```
 
 The discriminator field must appear before the union. The union size is the max of all variant sizes. Struct variant fields are accessible directly: `msg.payload.x.value`. Use `.variant` to get the raw variant object. Unknown discriminator values raise `ValueError`.
+
+### Struct Alignment
+
+```python
+# Default: packed (no padding)
+class packed_t(struct):
+    a: c_char
+    b: c_int
+# size: 5
+
+# Aligned: natural C alignment with padding
+class aligned_t(struct):
+    _aligned_ = True
+    a: c_char
+    b: c_int
+# size: 8 (1 + 3 padding + 4)
+
+alignment_of(c_int)       # 4
+alignment_of(aligned_t)   # 4 (max member alignment)
+
+# Custom alignment width
+class wide_t(struct):
+    _aligned_ = 16
+    a: c_int
+# size: 16, alignment: 16
+```
 
 ### Explicit Field Offsets
 
