@@ -18,7 +18,7 @@ All types inherit from `obj`. Every `obj` has:
 - `.hexdump()` for a hex dump of the object's bytes
 - `.from_bytes(data)` class method to create a read-only instance from raw bytes
 
-Memory is accessed through an `inflater`, which wraps a `bytes` or `bytearray` buffer. Use `bytearray` for read/write access.
+Memory is accessed through an `inflater`, which wraps a `bytes`, `bytearray`, or `mmap.mmap` buffer. Use `bytearray` or writable mmap for read/write access. For file-backed memory, use `inflater_from_file()`.
 
 ## Quick Reference
 
@@ -27,24 +27,30 @@ Memory is accessed through an `inflater`, which wraps a `bytes` or `bytearray` b
 ```python
 from typing import Annotated
 from libdestruct import (
-    inflater,          # memory wrapper
-    struct,            # struct base class
-    c_int, c_uint,     # 32-bit integers (signed/unsigned)
-    c_long, c_ulong,   # 64-bit integers (signed/unsigned)
-    c_float, c_double, # IEEE 754 floats (32/64-bit)
-    c_str,             # null-terminated C string
-    ptr,               # 8-byte pointer
-    ptr_to,            # typed pointer field descriptor (legacy)
-    ptr_to_self,       # self-referential pointer field descriptor (legacy)
-    array, array_of,   # array type + field descriptor
-    enum, enum_of,     # enum type + field descriptor
-    bitfield_of,       # bitfield descriptor
-    union,             # union annotation type
-    union_of,          # plain union field descriptor
-    tagged_union,      # tagged union field descriptor
-    offset,            # explicit field offset
-    size_of,           # get size in bytes of any type/instance/field
-    alignment_of,      # get natural alignment of any type/instance
+    inflater,              # memory wrapper (bytearray / mmap)
+    inflater_from_file,    # file-backed inflater (convenience)
+    FileInflater,          # file-backed inflater class
+    struct,                # struct base class
+    c_int, c_uint,         # 32-bit integers (signed/unsigned)
+    c_long, c_ulong,       # 64-bit integers (signed/unsigned)
+    c_short, c_ushort,     # 16-bit integers (signed/unsigned)
+    c_char, c_uchar,       # 8-bit integers (signed/unsigned)
+    c_float, c_double,     # IEEE 754 floats (32/64-bit)
+    c_str,                 # null-terminated C string
+    ptr,                   # 8-byte pointer
+    ptr_to,                # typed pointer field descriptor (legacy)
+    ptr_to_self,           # self-referential pointer field descriptor (legacy)
+    array, array_of,       # array type + field descriptor
+    vla_of,                # variable-length array field descriptor
+    enum, enum_of,         # enum type + field descriptor
+    flags, flags_of,       # bit flags type + field descriptor
+    bitfield_of,           # bitfield descriptor
+    union,                 # union annotation type
+    union_of,              # plain union field descriptor
+    tagged_union,          # tagged union field descriptor
+    offset,                # explicit field offset
+    size_of,               # get size in bytes of any type/instance/field
+    alignment_of,          # get natural alignment of any type/instance
 )
 ```
 
@@ -210,6 +216,32 @@ for element in pkt.data:
     print(element.value)
 ```
 
+### Variable-Length Arrays
+
+VLAs model C flexible array members: the count is read from a sibling field at inflation time.
+
+```python
+class packet_t(struct):
+    length: c_int
+    data: array[c_int, "length"]     # subscript syntax (string = VLA)
+```
+
+Or with the descriptor:
+
+```python
+class packet_t(struct):
+    length: c_int
+    data: array = vla_of(c_int, "length")
+```
+
+```python
+pkt = lib.inflate(packet_t, 0)
+print(len(pkt.data))              # reads from pkt.length.value
+print(pkt.data[0].value)          # first element
+```
+
+Size semantics: `size_of(packet_t)` returns the fixed part only (excludes VLA). `size_of(instance)` includes VLA data. VLA must be the last field in the struct. VLA elements can be structs.
+
 ### Enums
 
 ```python
@@ -242,6 +274,44 @@ class pixel_t(struct):
 pixel = lib.inflate(pixel_t, 0)
 print(pixel.color.value)  # Color.RED
 ```
+
+### Bit Flags
+
+Use Python's `IntFlag` for bitmask fields:
+
+```python
+from enum import IntFlag
+
+class Perms(IntFlag):
+    READ = 1
+    WRITE = 2
+    EXEC = 4
+
+class file_t(struct):
+    mode: flags[Perms]            # subscript syntax (defaults to c_int backing)
+    size: c_int
+
+# With a custom backing type:
+class file_t(struct):
+    mode: flags[Perms, c_short]   # 2-byte backing
+    size: c_int
+```
+
+Legacy syntax with `flags_of()`:
+
+```python
+class file_t(struct):
+    mode: flags = flags_of(Perms)
+    size: c_int
+```
+
+```python
+f = lib.inflate(file_t, 0)
+print(f.mode.value)           # Perms.READ|Perms.WRITE
+print(Perms.READ in f.mode.value)  # True
+```
+
+By default flags are lenient (unknown bits produce raw int). Use `flags_of(Perms, lenient=False)` for strict mode that raises `ValueError` on unknown bits.
 
 ### Bitfields
 
@@ -350,6 +420,27 @@ e = lib.inflate(entity_t, 0)
 print(e.pos.x.value)
 ```
 
+### Struct Inheritance
+
+Structs support Python class inheritance. Derived structs include all parent fields first, then their own.
+
+```python
+class base_t(struct):
+    a: c_int
+
+class derived_t(base_t):
+    b: c_int
+```
+
+```python
+d = derived_t.from_bytes(pystruct.pack("<ii", 10, 20))
+print(d.a.value)  # 10
+print(d.b.value)  # 20
+size_of(derived_t)  # 8
+```
+
+Multi-level inheritance (A -> B -> C) and alignment inheritance both work. Parent fields always appear first in layout and `to_dict()`.
+
 ### size_of
 
 ```python
@@ -449,6 +540,24 @@ player = lib.inflate(player_t, 0x100)
 player.health.value = 999
 open("save.bin", "wb").write(data)
 ```
+
+### File-backed inflater
+
+Read (and optionally write) binary files directly via mmap, without loading the entire file into memory:
+
+```python
+# Read-only
+with inflater_from_file("firmware.bin") as lib:
+    header = lib.inflate(header_t, 0)
+    print(header.magic.value)
+
+# Writable — changes are persisted to the file
+with inflater_from_file("save.bin", writable=True) as lib:
+    player = lib.inflate(player_t, 0x100)
+    player.health.value = 999
+```
+
+You can also pass an `mmap.mmap` object directly to `inflater()`.
 
 ### Working with libdebug
 

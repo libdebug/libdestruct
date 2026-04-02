@@ -36,6 +36,9 @@ dev = [
     "rich",
 ]
 
+[tool.setuptools.packages.find]
+include = ["libdestruct*"]
+
 [tool.ruff]
 line-length = 120
 indent-width = 4

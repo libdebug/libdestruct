@@ -57,8 +57,10 @@ nav:
     - Pointers: basics/pointers.md
     - Arrays: basics/arrays.md
     - Enums: basics/enums.md
+    - Bit Flags: basics/flags.md
   - Memory:
     - The Inflater: memory/inflater.md
+    - File-Backed Memory: memory/file_inflater.md
     - Resolvers: memory/resolvers.md
   - Advanced:
     - Bitfields: advanced/bitfields.md
@@ -68,4 +70,6 @@ nav:
     - Hex Dump: advanced/hexdump.md
     - Unions: advanced/tagged_unions.md
     - Struct Alignment: advanced/alignment.md
+    - Struct Inheritance: advanced/inheritance.md
+    - Variable-Length Arrays: advanced/vla.md
     - Field Offsets: advanced/offset.md

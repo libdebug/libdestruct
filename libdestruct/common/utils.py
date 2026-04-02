@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import contextlib
 import sys
-from types import MethodType
+from types import GenericAlias, MethodType
 from typing import TYPE_CHECKING, Any, ForwardRef
 
 from libdestruct.common.field import Field
+from libdestruct.common.type_registry import TypeRegistry
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Generator
@@ -27,8 +28,6 @@ def is_field_bound_method(item: obj) -> bool:
 
 def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
     """Return the size in bytes of a type, instance, or field descriptor."""
-    from types import GenericAlias
-
     # Field instances (e.g. array_of, ptr_to) — must come before .size check
     if isinstance(item_or_inflater, Field):
         return item_or_inflater.get_size()
@@ -37,19 +36,15 @@ def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
 
     # Subscripted GenericAlias types (e.g. array[c_int, 10], enum[Color], ptr[T])
     if isinstance(item_or_inflater, GenericAlias):
-        from libdestruct.common.type_registry import TypeRegistry
-
         inflater = TypeRegistry().inflater_for(item_or_inflater)
         return size_of(inflater)
 
-    # Struct types: size is on the inflated _type_impl class
-    if isinstance(item_or_inflater, type) and hasattr(item_or_inflater, "_type_impl"):
+    # Struct types: size is on the inflated _type_impl class (check own __dict__ to avoid MRO leaks)
+    if isinstance(item_or_inflater, type) and "_type_impl" in item_or_inflater.__dict__:
         return item_or_inflater._type_impl.size
 
     # Struct types not yet inflated: trigger inflation to compute size
     if isinstance(item_or_inflater, type) and not hasattr(item_or_inflater, "size"):
-        from libdestruct.common.type_registry import TypeRegistry
-
         impl = TypeRegistry().inflater_for(item_or_inflater)
         if hasattr(impl, "size") and isinstance(impl.size, int):
             return impl.size
@@ -58,9 +53,16 @@ def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
     if isinstance(item_or_inflater, type):
         if hasattr(item_or_inflater, "size") and isinstance(item_or_inflater.size, int):
             return item_or_inflater.size
-    elif hasattr(item_or_inflater.__class__, "size"):
-        return item_or_inflater.__class__.size
+    elif "_vla_fixed_offset" in item_or_inflater.__dict__:
+        # VLA struct: size = fixed offset + dynamic VLA size
+        vla_offset = item_or_inflater.__dict__["_vla_fixed_offset"]
+        members = object.__getattribute__(item_or_inflater, "_members")
+        last_member = list(members.values())[-1]
+        return vla_offset + last_member.size
+    elif "size" in item_or_inflater.__dict__:
+        return item_or_inflater.__dict__["size"]
     elif hasattr(item_or_inflater, "size"):
+        # Handles both class-level attributes and properties (e.g. vla_impl.size)
         return item_or_inflater.size
 
     raise ValueError(f"Cannot determine the size of {item_or_inflater}")
@@ -74,12 +76,12 @@ def alignment_of(item: obj | type[obj]) -> int:
     For packed structs (the default), alignment is 1.
     """
     # For uninflated struct types, trigger inflation first so alignment is computed
-    if isinstance(item, type) and not hasattr(item, "size") and not hasattr(item, "_type_impl"):
+    if isinstance(item, type) and not hasattr(item, "size") and "_type_impl" not in item.__dict__:
         with contextlib.suppress(ValueError, TypeError):
             size_of(item)
 
-    # Struct types with computed alignment
-    if isinstance(item, type) and hasattr(item, "_type_impl"):
+    # Struct types with computed alignment (check own __dict__ to avoid MRO leaks)
+    if isinstance(item, type) and "_type_impl" in item.__dict__:
         impl = item._type_impl
         if hasattr(impl, "alignment"):
             return impl.alignment

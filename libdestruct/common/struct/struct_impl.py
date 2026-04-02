@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+from types import GenericAlias
 from typing import Annotated, get_args, get_origin
 
 from typing_extensions import Self
 
 from libdestruct.backing.fake_resolver import FakeResolver
 from libdestruct.backing.resolver import Resolver
+from libdestruct.common.array.vla_field import VLAField
 from libdestruct.common.attributes.offset_attribute import OffsetAttribute
 from libdestruct.common.bitfield.bitfield_field import BitfieldField
 from libdestruct.common.bitfield.bitfield_tracker import BitfieldTracker
@@ -119,6 +121,17 @@ class struct_impl(struct):
 
         current_offset += bf_tracker.flush()
 
+        # For VLA structs, size must be computed dynamically since the count
+        # can change at runtime.  Detect VLA by duck-typing: vla_impl has a
+        # _count_member attribute that plain array_impl does not.
+        members = object.__getattribute__(self, "_members")
+        last_member = list(members.values())[-1] if members else None
+        if last_member is not None and hasattr(last_member, "_count_member"):
+            last_name = list(self._members.keys())[-1]
+            self._vla_fixed_offset = self._member_offsets[last_name]
+        else:
+            self.size = current_offset
+
     @staticmethod
     def _resolve_field(
         name: str,
@@ -181,10 +194,27 @@ class struct_impl(struct):
         max_alignment = 1
         bf_tracker = BitfieldTracker()
         aligned = getattr(reference_type, "_aligned_", False)
+        seen_vla = False
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
             if name == "_aligned_":
                 continue
+
+            # VLA must be the last field
+            if seen_vla:
+                raise ValueError(
+                    f"Variable-length array must be the last field in a struct. "
+                    f"Field '{name}' follows a VLA."
+                )
+            # Detect VLA from default value or subscript annotation
+            default = getattr(reference, name, None) if hasattr(reference, name) else None
+            is_vla = isinstance(default, VLAField)
+            if not is_vla and isinstance(annotation, GenericAlias):
+                args = annotation.__args__
+                if len(args) == 2 and isinstance(args[1], str):
+                    is_vla = True
+            if is_vla:
+                seen_vla = True
 
             resolved_type, bitfield_field, explicit_offset = struct_impl._resolve_field(
                 name, annotation, reference, cls._inflater, owner=(None, cls),

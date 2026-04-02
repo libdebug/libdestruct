@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from libdestruct.common.array.array import array
 from libdestruct.common.array.linear_array_field import LinearArrayField
+from libdestruct.common.array.vla_field import VLAField
+from libdestruct.common.array.vla_field_inflater import vla_field_inflater
 from libdestruct.common.type_registry import TypeRegistry
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -39,10 +41,14 @@ def _subscripted_array_handler(
     args: tuple,
     owner: tuple[obj, type[obj]] | None,
 ) -> Callable[[Resolver], obj] | None:
-    """Handle subscripted array types like array[c_int, 3]."""
+    """Handle subscripted array types like array[c_int, 3] or array[c_int, 'length']."""
     if len(args) != 2:
         return None
     element_type, count = args
+    if isinstance(count, str):
+        # Variable-length array: count is a field name
+        field = VLAField(element_type, count)
+        return vla_field_inflater(field, type(None), owner)
     if not isinstance(count, int) or count <= 0:
         raise ValueError(f"array count must be a positive integer, got {count}")
     field = LinearArrayField(element_type, count)
