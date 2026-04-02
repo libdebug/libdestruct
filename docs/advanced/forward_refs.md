@@ -50,14 +50,14 @@ memory[4:12] = pystruct.pack("<q", 12)   # next -> offset 12
 
 # Node 1 at offset 12
 memory[12:16] = pystruct.pack("<i", 20)
-memory[16:24] = pystruct.pack("<q", 0)   # next -> null
+memory[16:24] = pystruct.pack("<q", 0xDEAD)   # next -> out of bounds
 
 lib = inflater(memory)
 head = lib.inflate(Node, 0)
 
 print(head.val.value)                        # 10
 print(head.next.unwrap().val.value)          # 20
-print(head.next.unwrap().next.try_unwrap())  # None
+print(head.next.unwrap().next.try_unwrap())  # None (address out of bounds)
 ```
 
 ## Tree Example

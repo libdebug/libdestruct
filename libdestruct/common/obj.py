@@ -77,8 +77,8 @@ class obj(ABC, Generic[T]):
 
     def freeze(self: obj) -> None:
         """Freeze the object."""
-        self._frozen_value = self.get()
-        self._frozen = True
+        object.__setattr__(self, "_frozen_value", self.get())
+        object.__setattr__(self, "_frozen", True)
 
     def diff(self: obj) -> tuple[object, object]:
         """Return the difference between the current value and the frozen value."""
@@ -97,7 +97,7 @@ class obj(ABC, Generic[T]):
     def update(self: obj) -> None:
         """Update the object with the given value."""
         try:
-            self._frozen_value = self.get()
+            object.__setattr__(self, "_frozen_value", self.get())
         except ValueError as e:
             raise RuntimeError("Could not update the object.") from e
 

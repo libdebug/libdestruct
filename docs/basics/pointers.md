@@ -54,12 +54,16 @@ class node_t(struct):
     val: c_int
     next: ptr[c_int]
 
-memory = b"\x0a\x00\x00\x00" + b"\x00" * 8  # val=10, next=null
+# next points to address 0xFF..FF which is out of bounds
+memory = b"\x0a\x00\x00\x00" + b"\xff" * 8
 node = node_t.from_bytes(memory)
 
 result = node.next.try_unwrap()
 print(result)  # None
 ```
+
+!!! note
+    A null pointer (address 0) is **not** automatically invalid — address 0 is a valid index in Python byte sequences. `try_unwrap()` only returns `None` when the address causes an `IndexError` or `ValueError` during resolution.
 
 ## Self-Referential Structs
 
@@ -94,16 +98,16 @@ import struct as pystruct
 # Node 0 at offset 0: val=10, next -> offset 12
 memory[0:4] = pystruct.pack("<i", 10)
 memory[4:12] = pystruct.pack("<q", 12)
-# Node 1 at offset 12: val=20, next -> null
+# Node 1 at offset 12: val=20, next -> out of bounds
 memory[12:16] = pystruct.pack("<i", 20)
-memory[16:24] = pystruct.pack("<q", 0)
+memory[16:24] = pystruct.pack("<q", 0xDEAD)
 
 lib = inflater(memory)
 head = lib.inflate(node_t, 0)
 
 print(head.val.value)                    # 10
 print(head.next.unwrap().val.value)      # 20
-print(head.next.unwrap().next.try_unwrap())  # None
+print(head.next.unwrap().next.try_unwrap())  # None (address out of bounds)
 ```
 
 ## Pointer Arithmetic

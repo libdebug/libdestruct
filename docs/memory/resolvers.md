@@ -49,10 +49,10 @@ All resolvers implement these methods:
 
 | Method | Description |
 |---|---|
-| `resolve(size, offset)` | Read `size` bytes starting at the resolved address + offset |
+| `resolve(size, index)` | Read `size` bytes starting at the resolved address + index |
 | `resolve_address()` | Return the absolute address of this resolver |
 | `modify(size, index, value)` | Write `value` bytes at the resolved address + index |
-| `relative_from_own(offset, size)` | Create a child resolver at a relative offset |
+| `relative_from_own(address_offset, index_offset)` | Create a child resolver at a relative offset |
 | `absolute_from_own(address)` | Create a child resolver at an absolute address |
 
 ## Custom Memory Backends

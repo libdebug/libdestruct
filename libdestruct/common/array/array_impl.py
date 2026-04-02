@@ -48,6 +48,10 @@ class array_impl(array):
 
     def get(self: array, index: int = -1) -> object:
         """Return the element at the given index, or all elements if index is -1."""
+        if hasattr(self, "_frozen_elements"):
+            if index == -1:
+                return list(self._frozen_elements)
+            return self._frozen_elements[index]
         if index == -1:
             return [self.backing_type(self.resolver.relative_from_own(i * self.item_size, 0)) for i in range(self._count)]
         return self.backing_type(self.resolver.relative_from_own(index * self.item_size, 0))
@@ -64,8 +68,21 @@ class array_impl(array):
         """Return a JSON-serializable list of element values."""
         return [elem.to_dict() for elem in self]
 
+    def freeze(self: array_impl) -> None:
+        """Freeze the array, individually freezing each element."""
+        self._frozen_elements = [
+            self.backing_type(self.resolver.relative_from_own(i * self.item_size, 0))
+            for i in range(self._count)
+        ]
+        for elem in self._frozen_elements:
+            elem.freeze()
+        self._frozen_array_bytes = b"".join(bytes(x) for x in self._frozen_elements)
+        super().freeze()
+
     def to_bytes(self: array_impl) -> bytes:
         """Return the serialized representation of the array."""
+        if self._frozen:
+            return self._frozen_array_bytes
         return b"".join(bytes(x) for x in self)
 
     def to_str(self: array_impl, indent: int = 0) -> str:
@@ -87,5 +104,8 @@ class array_impl(array):
 
     def __iter__(self: array_impl) -> Generator[obj, None, None]:
         """Iterate over the array."""
-        for i in range(self._count):
-            yield self[i]
+        if self._frozen:
+            yield from self._frozen_elements
+        else:
+            for i in range(self._count):
+                yield self[i]

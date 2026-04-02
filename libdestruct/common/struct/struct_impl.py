@@ -49,8 +49,8 @@ class struct_impl(struct):
         # struct overrides the __init__ method, so we need to call the parent class __init__ method
         obj.__init__(self, resolver)
 
-        self._struct_name = self.__class__.__name__
-        self._members = {}
+        object.__setattr__(self, "_struct_name", self.__class__.__name__)
+        object.__setattr__(self, "_members", {})
 
         reference_type = self._reference_struct
         self._inflate_struct_attributes(self._inflater, resolver, reference_type)
@@ -69,6 +69,17 @@ class struct_impl(struct):
             pass
         return super().__getattribute__(name)
 
+    def __setattr__(self: struct_impl, name: str, value: object) -> None:
+        """Set an attribute, delegating to member.value for struct fields."""
+        try:
+            members = object.__getattribute__(self, "_members")
+            if name in members:
+                members[name].value = value
+                return
+        except AttributeError:
+            pass
+        object.__setattr__(self, name, value)
+
     def __new__(cls: struct_impl, *args: ..., **kwargs: ...) -> Self:
         """Create a new struct."""
         # Skip the __new__ method of the parent class
@@ -82,9 +93,10 @@ class struct_impl(struct):
         reference_type: type,
     ) -> None:
         current_offset = 0
+        max_alignment = 1
         bf_tracker = BitfieldTracker()
         aligned = getattr(reference_type, "_aligned_", False)
-        self._member_offsets = {}
+        object.__setattr__(self, "_member_offsets", {})
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
             if name == "_aligned_":
@@ -103,7 +115,9 @@ class struct_impl(struct):
             if bitfield_field:
                 if aligned and bf_tracker.needs_new_group(bitfield_field):
                     current_offset += bf_tracker.flush()
-                    current_offset = _align_offset(current_offset, alignment_of(bitfield_field.backing_type))
+                    field_align = alignment_of(bitfield_field.backing_type)
+                    max_alignment = max(max_alignment, field_align)
+                    current_offset = _align_offset(current_offset, field_align)
                 self._member_offsets[name] = current_offset
                 result, offset_delta = bf_tracker.create_bitfield(
                     bitfield_field, inflater, resolver, current_offset,
@@ -112,7 +126,18 @@ class struct_impl(struct):
             else:
                 current_offset += bf_tracker.flush()
                 if aligned and explicit_offset is None:
-                    current_offset = _align_offset(current_offset, alignment_of(resolved_type))
+                    # Try alignment from the resolved type directly; for closures
+                    # (e.g. union inflaters) alignment_of can't inspect them, so
+                    # fall back to creating a probe instance.
+                    field_align = alignment_of(resolved_type)
+                    if field_align <= 1:
+                        try:
+                            probe = resolved_type(resolver.relative_from_own(current_offset, 0))
+                            field_align = alignment_of(probe)
+                        except (ValueError, TypeError):
+                            pass
+                    max_alignment = max(max_alignment, field_align)
+                    current_offset = _align_offset(current_offset, field_align)
                 self._member_offsets[name] = current_offset
                 result = resolved_type(resolver.relative_from_own(current_offset, 0))
                 current_offset += size_of(result)
@@ -121,16 +146,22 @@ class struct_impl(struct):
 
         current_offset += bf_tracker.flush()
 
+        # Apply tail padding for aligned structs
+        if aligned:
+            if isinstance(aligned, int) and aligned is not True:
+                max_alignment = max(max_alignment, aligned)
+            current_offset = _align_offset(current_offset, max_alignment)
+
         # For VLA structs, size must be computed dynamically since the count
         # can change at runtime.  Detect VLA by duck-typing: vla_impl has a
         # _count_member attribute that plain array_impl does not.
         members = object.__getattribute__(self, "_members")
         last_member = list(members.values())[-1] if members else None
         if last_member is not None and hasattr(last_member, "_count_member"):
-            last_name = list(self._members.keys())[-1]
-            self._vla_fixed_offset = self._member_offsets[last_name]
+            last_name = list(members.keys())[-1]
+            object.__setattr__(self, "_vla_fixed_offset", self._member_offsets[last_name])
         else:
-            self.size = current_offset
+            object.__setattr__(self, "size", current_offset)
 
     @staticmethod
     def _resolve_field(
@@ -316,7 +347,7 @@ class struct_impl(struct):
 
     def reset(self: struct_impl) -> None:
         """Reset each member to its frozen value."""
-        if not self._frozen:
+        if not object.__getattribute__(self, "_frozen"):
             raise RuntimeError("Cannot reset a struct that has not been frozen.")
 
         members = object.__getattribute__(self, "_members")

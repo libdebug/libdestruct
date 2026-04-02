@@ -103,7 +103,7 @@ class ptr(obj[T]):
             result = self.wrapper(self.resolver.absolute_from_own(address))
         else:
             target_resolver = self.resolver.absolute_from_own(address)
-            result = target_resolver.resolve(length or 1, 0)
+            result = target_resolver.resolve(length if length is not None else 1, 0)
 
         self._cached_unwrap = result
         self._cache_valid = True
@@ -123,7 +123,7 @@ class ptr(obj[T]):
 
         try:
             # If the address is invalid, this will raise an IndexError or ValueError.
-            self.resolver.absolute_from_own(address).resolve(length or 1, 0)
+            self.resolver.absolute_from_own(address).resolve(length if length is not None else 1, 0)
         except (IndexError, ValueError):
             return None
 

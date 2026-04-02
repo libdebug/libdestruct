@@ -97,7 +97,8 @@ def definition_to_type(definition: str) -> type[obj]:
 
     result = struct_to_type(root)
 
-    PARSED_STRUCTS[root.name] = result
+    if root.name:
+        PARSED_STRUCTS[root.name] = result
 
     return result
 
@@ -169,6 +170,9 @@ def arr_to_type(arr: c_ast.ArrayDecl) -> type[obj]:
         raise TypeError("Definition must be a type declaration.")
 
     typ = ptr_to_type(arr.type) if isinstance(arr.type, c_ast.PtrDecl) else type_decl_to_type(arr.type)
+
+    if arr.dim is None:
+        raise ValueError("Unsized arrays (flexible array members) are not supported.")
 
     return array_of(typ, int(arr.dim.value))
 

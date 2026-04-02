@@ -64,7 +64,7 @@ class enum(obj):
 
     def _set(self: enum, value: Enum) -> None:
         """Set the value of the enum."""
-        self._backing_type.set(value.value)
+        self._backing_type.set(int(value))
 
     def to_bytes(self: enum) -> bytes:
         """Return the serialized representation of the enum."""

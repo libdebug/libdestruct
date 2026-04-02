@@ -109,7 +109,7 @@ class s_t(struct):
     b: c_int = offset(3)   # placed at offset 3, not rounded to 4
     c: c_int               # aligned normally after b
 
-size_of(s_t)  # 7 (3 + 4)
+size_of(s_t)  # 12 (b at offset 3 + 4 bytes = 7, c aligned to offset 8 + 4 bytes = 12)
 ```
 
 ## alignment_of()
