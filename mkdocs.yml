@@ -1,0 +1,75 @@
+site_name: Docs / libdestruct
+repo_url: https://github.com/mrindeciso/libdestruct
+repo_name: mrindeciso/libdestruct
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Nunito
+    code: Hack
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - The Basics:
+    - Getting Started: basics/getting_started.md
+    - C Types: basics/types.md
+    - Structs: basics/structs.md
+    - Pointers: basics/pointers.md
+    - Arrays: basics/arrays.md
+    - Enums: basics/enums.md
+    - Bit Flags: basics/flags.md
+  - Memory:
+    - The Inflater: memory/inflater.md
+    - File-Backed Memory: memory/file_inflater.md
+    - Resolvers: memory/resolvers.md
+  - Advanced:
+    - Bitfields: advanced/bitfields.md
+    - Freeze, Diff & Reset: advanced/freeze_diff.md
+    - C Struct Parser: advanced/c_parser.md
+    - Forward References: advanced/forward_refs.md
+    - Hex Dump: advanced/hexdump.md
+    - Unions: advanced/tagged_unions.md
+    - Struct Alignment: advanced/alignment.md
+    - Struct Inheritance: advanced/inheritance.md
+    - Variable-Length Arrays: advanced/vla.md
+    - Field Offsets: advanced/offset.md

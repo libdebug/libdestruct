@@ -14,9 +14,37 @@ from typing import TYPE_CHECKING
 
 from pycparser import c_ast, c_parser
 
+from libdestruct.c.c_float_types import c_double, c_float
+from libdestruct.c.c_integer_types import c_char, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort
 from libdestruct.common.array.array_of import array_of
+from libdestruct.common.bitfield.bitfield_of import bitfield_of
 from libdestruct.common.ptr.ptr_factory import ptr_to, ptr_to_self
 from libdestruct.common.struct import struct
+
+# Mapping from ctypes types to libdestruct native integer types (needed for bitfields)
+_CTYPES_TO_NATIVE = {
+    ctypes.c_byte: c_char,
+    ctypes.c_char: c_char,
+    ctypes.c_ubyte: c_uchar,
+    ctypes.c_short: c_short,
+    ctypes.c_ushort: c_ushort,
+    ctypes.c_int: c_int,
+    ctypes.c_uint: c_uint,
+    ctypes.c_long: c_long,
+    ctypes.c_ulong: c_ulong,
+    ctypes.c_longlong: c_long,
+    ctypes.c_ulonglong: c_ulong,
+    ctypes.c_int8: c_char,
+    ctypes.c_int16: c_short,
+    ctypes.c_int32: c_int,
+    ctypes.c_int64: c_long,
+    ctypes.c_uint8: c_uchar,
+    ctypes.c_uint16: c_ushort,
+    ctypes.c_uint32: c_uint,
+    ctypes.c_uint64: c_ulong,
+    ctypes.c_size_t: c_ulong,
+    ctypes.c_ssize_t: c_long,
+}
 
 if TYPE_CHECKING:
     from libdestruct.common.obj import obj
@@ -27,6 +55,12 @@ PARSED_STRUCTS = {}
 
 TYPEDEFS = {}
 """A cache for parsed type definitions, indexed by name."""
+
+
+def clear_parser_cache() -> None:
+    """Clear cached struct definitions and typedefs from previous parses."""
+    PARSED_STRUCTS.clear()
+    TYPEDEFS.clear()
 
 
 def definition_to_type(definition: str) -> type[obj]:
@@ -63,7 +97,8 @@ def definition_to_type(definition: str) -> type[obj]:
 
     result = struct_to_type(root)
 
-    PARSED_STRUCTS[root.name] = result
+    if root.name:
+        PARSED_STRUCTS[root.name] = result
 
     return result
 
@@ -81,20 +116,36 @@ def struct_to_type(struct_node: c_ast.Struct) -> type[struct]:
     elif not struct_node.decls:
         raise ValueError("Struct must have fields.")
 
+    class_dict = {}
+
     for decl in struct_node.decls:
         name = decl.name
         typ = type_decl_to_type(decl.type, struct_node)
         fields[name] = typ
 
+        # Handle bitfields: decl.bitsize is set when the declaration has ": N"
+        if decl.bitsize is not None:
+            bit_width = int(decl.bitsize.value)
+            # Convert ctypes types to native libdestruct types for bitfield backing
+            native_type = _CTYPES_TO_NATIVE.get(typ, typ)
+            class_dict[name] = bitfield_of(native_type, bit_width)
+            fields[name] = native_type
+
     type_name = struct_node.name if struct_node.name else "anon_struct"
 
-    return type(type_name, (struct,), {"__annotations__": fields})
+    class_dict["__annotations__"] = fields
+    return type(type_name, (struct,), class_dict)
 
 
 def ptr_to_type(ptr: c_ast.PtrDecl, parent: c_ast.Struct | None = None) -> type[obj]:
     """Converts a C pointer to a type."""
     if not isinstance(ptr, c_ast.PtrDecl):
         raise TypeError("Definition must be a pointer.")
+
+    # Handle nested pointers (e.g., int **pp) by recursively wrapping in ptr_to
+    if isinstance(ptr.type, c_ast.PtrDecl):
+        inner = ptr_to_type(ptr.type, parent)
+        return ptr_to(inner)
 
     if not isinstance(ptr.type, c_ast.TypeDecl):
         raise TypeError("Definition must be a type declaration.")
@@ -119,6 +170,9 @@ def arr_to_type(arr: c_ast.ArrayDecl) -> type[obj]:
         raise TypeError("Definition must be a type declaration.")
 
     typ = ptr_to_type(arr.type) if isinstance(arr.type, c_ast.PtrDecl) else type_decl_to_type(arr.type)
+
+    if arr.dim is None:
+        raise ValueError("Unsized arrays (flexible array members) are not supported.")
 
     return array_of(typ, int(arr.dim.value))
 
@@ -152,11 +206,16 @@ def typedef_to_pair(typedef: c_ast.Typedef) -> tuple[str, type[obj]]:
     if not isinstance(typedef, c_ast.Typedef):
         raise TypeError("Definition must be a typedef.")
 
-    if not isinstance(typedef.type, c_ast.TypeDecl):
-        raise TypeError("Definition must be a type declaration.")
-
     name = "".join(typedef.name)
-    definition = type_decl_to_type(typedef.type)
+
+    if isinstance(typedef.type, c_ast.PtrDecl):
+        definition = ptr_to_type(typedef.type)
+    elif isinstance(typedef.type, c_ast.ArrayDecl):
+        definition = arr_to_type(typedef.type)
+    elif isinstance(typedef.type, c_ast.TypeDecl):
+        definition = type_decl_to_type(typedef.type)
+    else:
+        raise TypeError("Unsupported typedef target type.")
 
     return name, definition
 
@@ -209,6 +268,11 @@ def identifier_to_type(identifier: c_ast.IdentifierType) -> type[obj]:
         raise TypeError("Definition must be an identifier.")
 
     identifier_name = "".join(identifier.names)
+
+    # Native float/double types (before ctypes fallback, so we get libdestruct types)
+    native_float_types = {"float": c_float, "double": c_double}
+    if identifier_name in native_float_types:
+        return native_float_types[identifier_name]
 
     ctypes_name = "c_" + identifier_name
 

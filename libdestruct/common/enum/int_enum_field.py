@@ -21,16 +21,27 @@ if TYPE_CHECKING:  # pragma: no cover
 class IntEnumField(EnumField):
     """A generator for an enum of integers."""
 
-    def __init__(self: IntEnumField, enum: type[IntEnum], lenient: bool = True, size: int = 4) -> None:
+    def __init__(
+        self: IntEnumField,
+        enum: type[IntEnum],
+        lenient: bool = True,
+        size: int = 4,
+        backing_type: type | None = None,
+    ) -> None:
         """Initialize the field.
 
         Args:
             enum: The enum class.
             lenient: Whether the conversion is lenient or not.
-            size: The size of the field in bytes.
+            size: The size of the field in bytes (used when backing_type is not provided).
+            backing_type: The explicit backing type to use. If provided, overrides size.
         """
         self.enum = enum
         self.lenient = lenient
+
+        if backing_type is not None:
+            self.backing_type = backing_type
+            return
 
         if not 0 < size <= 8:
             raise ValueError("The size of the field must be between 1 and 8 bytes.")

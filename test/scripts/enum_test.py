@@ -7,7 +7,7 @@
 import unittest
 
 from enum import Enum, IntEnum
-from libdestruct import inflater, enum, enum_of, struct
+from libdestruct import inflater, c_int, enum, enum_of, struct
 
 class EnumTest(unittest.TestCase):
     def test_enum(self):
@@ -70,3 +70,64 @@ class EnumTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             enum_of(Test, size=9)
+
+    def test_enum_to_str_no_leading_indent(self):
+        """enum.to_str() should not add unexpected leading indentation."""
+        class Color(IntEnum):
+            RED = 0
+            GREEN = 1
+
+        class test_t(struct):
+            color: enum = enum_of(Color)
+            x: c_int
+
+        memory = b""
+        memory += (1).to_bytes(4, "little")  # GREEN
+        memory += (42).to_bytes(4, "little")
+
+        test = test_t.from_bytes(memory)
+        result = test.to_str()
+
+        # Should be "    color: <Color.GREEN: 1>", not "    color:     <Color.GREEN: 1>"
+        self.assertIn("color: <Color.GREEN: 1>", result)
+
+    def test_enum_standalone_to_str(self):
+        class Color(IntEnum):
+            RED = 0
+            BLUE = 1
+
+        class test_t(struct):
+            color: enum = enum_of(Color)
+
+        memory = (0).to_bytes(4, "little")
+        test = test_t.from_bytes(memory)
+
+        result = test.color.to_str()
+        self.assertFalse(result.startswith(" "))
+
+    def test_enum_value_extraction(self):
+        class Status(IntEnum):
+            OK = 0
+            ERROR = 1
+            PENDING = 2
+
+        class test_t(struct):
+            status: enum = enum_of(Status)
+
+        memory = (2).to_bytes(4, "little")
+        test = test_t.from_bytes(memory)
+        self.assertEqual(test.status.value, Status.PENDING)
+
+    def test_bytes_on_bytearray_backed_enum(self):
+        class Color(IntEnum):
+            RED = 0
+            GREEN = 1
+
+        class test_t(struct):
+            color: enum = enum_of(Color)
+
+        lib = inflater(bytearray(b"\x01\x00\x00\x00"))
+        test = lib.inflate(test_t, 0)
+
+        result = bytes(test)
+        self.assertIsInstance(result, bytes)

@@ -26,12 +26,14 @@ class struct(obj):
     def __new__(cls: type[struct], *args: ..., **kwargs: ...) -> struct:  # noqa: PYI034
         """Create a new struct."""
         # Look for an inflater for this struct
-        inflater = TypeRegistry().inflater_for(cls)
-        return inflater(*args, **kwargs)
+        type_impl = TypeRegistry().inflater_for(cls)
+        return type_impl(*args, **kwargs)
 
     @classmethod
-    def from_bytes(cls: type[struct], data: bytes) -> struct_impl:
+    def from_bytes(cls: type[struct], data: bytes, endianness: str = "little") -> struct_impl:
         """Create a struct from a serialized representation."""
-        type_inflater = inflater(data)
+        type_inflater = inflater(data, endianness=endianness)
 
-        return type_inflater.inflate(cls, 0)
+        result = type_inflater.inflate(cls, 0)
+        result.freeze()
+        return result

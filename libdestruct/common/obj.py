@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+from libdestruct.common.hexdump import format_hexdump
 
 if TYPE_CHECKING:  # pragma: no cover
     from libdestruct.backing.resolver import Resolver
 
+T = TypeVar("T")
 
-class obj(ABC):
+class obj(ABC, Generic[T]):
     """A generic object, with reference to the backing memory view."""
 
     endianness: str = "little"
@@ -35,6 +38,8 @@ class obj(ABC):
             resolver: The resolver for the value of this object.
         """
         self.resolver = resolver
+        if resolver is not None:
+            self.endianness = resolver.endianness
 
     @property
     def address(self: obj) -> int:
@@ -54,9 +59,12 @@ class obj(ABC):
         """Serialize the object to bytes."""
 
     @classmethod
-    def from_bytes(cls: type[obj], data: bytes) -> obj:
+    def from_bytes(cls: type[obj], data: bytes, endianness: str = "little") -> obj:
         """Deserialize the object from bytes."""
-        item = cls(data, 0)
+        from libdestruct.libdestruct import inflater
+
+        lib = inflater(data, endianness=endianness)
+        item = lib.inflate(cls, 0)
         item.freeze()
         return item
 
@@ -69,8 +77,8 @@ class obj(ABC):
 
     def freeze(self: obj) -> None:
         """Freeze the object."""
-        self._frozen_value = self.get()
-        self._frozen = True
+        object.__setattr__(self, "_frozen_value", self.get())
+        object.__setattr__(self, "_frozen", True)
 
     def diff(self: obj) -> tuple[object, object]:
         """Return the difference between the current value and the frozen value."""
@@ -89,7 +97,7 @@ class obj(ABC):
     def update(self: obj) -> None:
         """Update the object with the given value."""
         try:
-            self._frozen_value = self.get()
+            object.__setattr__(self, "_frozen_value", self.get())
         except ValueError as e:
             raise RuntimeError("Could not update the object.") from e
 
@@ -124,12 +132,69 @@ class obj(ABC):
         """Return a string representation of the object."""
         return f"{self.__class__.__name__}({self.get()})"
 
-    def __eq__(self: obj, value: object) -> bool:
-        """Return whether the object is equal to the given value."""
-        if not isinstance(value, obj):
-            return False
+    def _compare_value(self: obj, other: object) -> tuple[object, object] | None:
+        """Extract comparable values from self and other, or None if incompatible."""
+        self_val = self.value
+        if isinstance(other, obj):
+            other_val = other.value
+            # Guard against incompatible value types (e.g. int vs str from struct.get())
+            if type(self_val) is not type(other_val) and not isinstance(self_val, type(other_val)) and not isinstance(other_val, type(self_val)):
+                return None
+            return self_val, other_val
+        if isinstance(other, int | float | bytes):
+            return self_val, other
+        return None
 
-        return self.get() == value.get()
+    def __eq__(self: obj, other: object) -> bool:
+        """Return whether the object is equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] == pair[1]
+
+    def __ne__(self: obj, other: object) -> bool:
+        """Return whether the object is not equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] != pair[1]
+
+    def __lt__(self: obj, other: object) -> bool:
+        """Return whether this object is less than the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] < pair[1]
+
+    def __le__(self: obj, other: object) -> bool:
+        """Return whether this object is less than or equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] <= pair[1]
+
+    def __gt__(self: obj, other: object) -> bool:
+        """Return whether this object is greater than the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] > pair[1]
+
+    def __ge__(self: obj, other: object) -> bool:
+        """Return whether this object is greater than or equal to the given value."""
+        pair = self._compare_value(other)
+        if pair is None:
+            return NotImplemented
+        return pair[0] >= pair[1]
+
+    def to_dict(self: obj) -> object:
+        """Return a JSON-serializable representation of the object."""
+        return self.value
+
+    def hexdump(self: obj) -> str:
+        """Return a hex dump of this object's bytes."""
+        address = self.address if not self._frozen else 0
+        return format_hexdump(self.to_bytes(), address)
 
     def __bytes__(self: obj) -> bytes:
         """Return the serialized object."""

@@ -7,12 +7,19 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from types import GenericAlias
 
 from libdestruct.common.obj import obj
 
 
 class array(obj):
     """An array of objects."""
+
+    def __class_getitem__(cls, params: tuple) -> GenericAlias:
+        """Support array[c_int, 3] subscript syntax."""
+        if not isinstance(params, tuple):
+            params = (params,)
+        return GenericAlias(cls, params)
 
     @abstractmethod
     def count(self: array) -> int:
@@ -23,8 +30,8 @@ class array(obj):
         return self.count()
 
     @abstractmethod
-    def get(self: array, index: int) -> object:
-        """Return the element at the given index."""
+    def get(self: array, index: int = -1) -> object:
+        """Return the element at the given index, or all elements if index is -1."""
 
     def __getitem__(self: array, index: int) -> object:
         """Return the element at the given index."""

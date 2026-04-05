@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from libdestruct.c.c_integer_types import c_int
+from libdestruct.common.enum.enum import enum
 from libdestruct.common.enum.int_enum_field import IntEnumField
 from libdestruct.common.type_registry import TypeRegistry
 
@@ -30,4 +32,19 @@ def generic_enum_field_inflater(
     return field.inflate
 
 
+def _subscripted_enum_handler(
+    item: object,
+    args: tuple,
+    owner: tuple[obj, type[obj]] | None,
+) -> Callable[[Resolver], obj] | None:
+    """Handle subscripted enum types like enum[MyEnum] or enum[MyEnum, c_short]."""
+    if not args:
+        return None
+    python_enum = args[0]
+    backing_type = args[1] if len(args) > 1 else c_int
+    field = IntEnumField(python_enum, backing_type=backing_type)
+    return field.inflate
+
+
 registry.register_instance_handler(IntEnumField, generic_enum_field_inflater)
+registry.register_generic_handler(enum, _subscripted_enum_handler)

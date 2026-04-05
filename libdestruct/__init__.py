@@ -11,29 +11,52 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     pass
 
-from libdestruct.c import c_int, c_long, c_str, c_uint, c_ulong
-from libdestruct.common.array import array, array_of
+from libdestruct.backing.resolver import Resolver
+from libdestruct.c import c_char, c_double, c_float, c_int, c_long, c_short, c_str, c_uchar, c_uint, c_ulong, c_ushort
+from libdestruct.common.array import array, array_of, vla_of
 from libdestruct.common.attributes import offset
+from libdestruct.common.bitfield import bitfield_of
 from libdestruct.common.enum import enum, enum_of
-from libdestruct.common.ptr import ptr
+from libdestruct.common.flags import flags, flags_of
+from libdestruct.common.ptr.ptr import ptr
 from libdestruct.common.struct import ptr_to, ptr_to_self, struct
-from libdestruct.libdestruct import inflate, inflater
+from libdestruct.common.union import tagged_union, union, union_of
+from libdestruct.common.utils import alignment_of, size_of
+from libdestruct.libdestruct import FileInflater, inflate, inflater, inflater_from_file
 
 __all__ = [
+    "FileInflater",
+    "Resolver",
+    "alignment_of",
     "array",
     "array_of",
-    "offset",
+    "bitfield_of",
+    "c_char",
+    "c_double",
+    "c_float",
     "c_int",
     "c_long",
+    "c_short",
     "c_str",
+    "c_uchar",
     "c_uint",
     "c_ulong",
+    "c_ushort",
     "enum",
     "enum_of",
+    "flags",
+    "flags_of",
     "inflate",
     "inflater",
-    "struct",
+    "inflater_from_file",
+    "offset",
     "ptr",
     "ptr_to",
     "ptr_to_self",
+    "size_of",
+    "struct",
+    "tagged_union",
+    "union",
+    "union_of",
+    "vla_of",
 ]

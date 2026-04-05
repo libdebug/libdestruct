@@ -368,3 +368,19 @@ class BasicStructTest(unittest.TestCase):
         self.assertEqual(test2.size.address, 0x0)
         self.assertEqual(test2.a.value, 0xdeadbeef)
         self.assertEqual(test2.address, 0x0)
+
+    def test_struct_new_syntax(self):
+        class Node(struct):
+            member: ptr["Node"]
+
+        memory  = b""
+        memory += (0x8).to_bytes(8, "little")
+        memory += (0x10).to_bytes(8, "little")
+        memory += (0x0).to_bytes(8, "little")
+
+        node_root = Node.from_bytes(memory)
+
+        self.assertEqual(node_root.member.value, 0x8)
+        self.assertEqual(node_root.member.unwrap().member.value, 0x10)
+        self.assertEqual(node_root.member.unwrap().member.unwrap().member.value, 0x0)
+        self.assertEqual(node_root.address, 0x0)

@@ -16,6 +16,9 @@ class Resolver(ABC):
 
     parent: Self
 
+    endianness: str = "little"
+    """The endianness of the data this resolver accesses."""
+
     @abstractmethod
     def relative_from_own(self: Resolver, address_offset: int, index_offset: int) -> Self:
         """Creates a resolver that references a parent, such that a change in the parent is propagated on the child."""

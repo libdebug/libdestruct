@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from types import GenericAlias
 from typing import TYPE_CHECKING
 
 from libdestruct.common.obj import obj
@@ -19,6 +20,12 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class enum(obj):
     """A generic enum."""
+
+    def __class_getitem__(cls, params: tuple) -> GenericAlias:
+        """Support enum[MyEnum] and enum[MyEnum, c_short] subscript syntax."""
+        if not isinstance(params, tuple):
+            params = (params,)
+        return GenericAlias(cls, params)
 
     python_enum: type[Enum]
     """The backing Python enum."""
@@ -47,11 +54,17 @@ class enum(obj):
 
     def get(self: enum) -> Enum:
         """Return the value of the enum."""
-        return self.python_enum(self._backing_type.get())
+        raw = self._backing_type.get()
+        if self.lenient:
+            try:
+                return self.python_enum(raw)
+            except ValueError:
+                return raw
+        return self.python_enum(raw)
 
     def _set(self: enum, value: Enum) -> None:
         """Set the value of the enum."""
-        self._backing_type.set(value.value)
+        self._backing_type.set(int(value))
 
     def to_bytes(self: enum) -> bytes:
         """Return the serialized representation of the enum."""
@@ -59,4 +72,4 @@ class enum(obj):
 
     def to_str(self: obj, indent: int = 0) -> str:
         """Return a string representation of the object."""
-        return f"{' ' * indent}{self.get()!r}"
+        return f"{self.get()!r}"
