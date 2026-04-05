@@ -5,7 +5,7 @@
 #
 
 try:  # pragma: no cover
-    from rich.traceback import install
+    from rich.traceback import install  # ty: ignore[unresolved-import]
 
     install()
 except ImportError:  # pragma: no cover
