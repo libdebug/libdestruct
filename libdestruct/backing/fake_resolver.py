@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from libdestruct.backing.resolver import Resolver
 
 
 class FakeResolver(Resolver):
     """A class that can resolve elements in a simulated memory storage."""
 
-    def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0, endianness: str = "little") -> None:
+    def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0, endianness: Literal["little", "big"] = "little") -> None:
         """Initializes a basic fake resolver."""
         self.memory = memory if memory is not None else {}
         self.address = address

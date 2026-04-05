@@ -9,7 +9,7 @@ from __future__ import annotations
 import mmap
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import Self
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
 _VALID_ENDIANNESS = ("little", "big")
 
 
-def inflater(memory: Sequence | mmap.mmap, endianness: str = "little") -> Inflater:
+def inflater(memory: Sequence | mmap.mmap, endianness: Literal["little", "big"] = "little") -> Inflater:
     """Return a TypeInflater instance."""
     if not isinstance(memory, Sequence | mmap.mmap):
         raise TypeError(f"memory must be a Sequence, not {type(memory).__name__}")
@@ -43,7 +43,7 @@ class FileInflater(Inflater):
         self: FileInflater,
         file_handle: io.BufferedReader,
         mmap_obj: mmap.mmap,
-        endianness: str = "little",
+        endianness: Literal["little", "big"] = "little",
     ) -> None:
         """Initialize the file-backed inflater."""
         super().__init__(mmap_obj, endianness=endianness)
@@ -60,7 +60,7 @@ class FileInflater(Inflater):
         self._file_handle.close()
 
 
-def inflater_from_file(path: str, writable: bool = False, endianness: str = "little") -> FileInflater:
+def inflater_from_file(path: str, writable: bool = False, endianness: Literal["little", "big"] = "little") -> FileInflater:
     """Create an inflater backed by a memory-mapped file.
 
     Args:
@@ -81,7 +81,7 @@ def inflater_from_file(path: str, writable: bool = False, endianness: str = "lit
     return FileInflater(file_handle, mmap_obj, endianness=endianness)
 
 
-def inflate(item: type, memory: Sequence, address: int | Resolver, endianness: str = "little") -> obj:
+def inflate(item: type, memory: Sequence, address: int | Resolver, endianness: Literal["little", "big"] = "little") -> obj:
     """Inflate a memory-referencing type.
 
     Args:

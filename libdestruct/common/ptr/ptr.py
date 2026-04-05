@@ -67,9 +67,10 @@ class ptr(obj[T]):
         value = self.resolver.resolve(self.size, 0)
         return int.from_bytes(value, self.endianness)
 
-    def to_bytes(self: obj) -> bytes:
+    def to_bytes(self: ptr) -> bytes:
         """Return the serialized representation of the object."""
         if self._frozen:
+            assert isinstance(self._frozen_value, int)
             return self._frozen_value.to_bytes(self.size, self.endianness)
 
         return self.resolver.resolve(self.size, 0)
@@ -159,7 +160,7 @@ class ptr(obj[T]):
         new_addr = self.get() - n * self._element_size
         return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
 
-    def __getitem__(self: ptr, n: int) -> obj:
+    def __getitem__(self: ptr, n: int) -> obj | bytes:
         """Return the object at index n relative to this pointer."""
         return (self + n).unwrap()
 

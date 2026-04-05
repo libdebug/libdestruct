@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from libdestruct.common.array.array import array
 
 
@@ -54,7 +56,7 @@ class c_str(array):
         """Set the character at the given index to the given value."""
         self._set(value, index)
 
-    def __iter__(self: c_str) -> iter:
+    def __iter__(self: c_str) -> Iterator:
         """Return an iterator over the string."""
         for i in range(self.count()):
             yield self.get(i)

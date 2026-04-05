@@ -30,8 +30,8 @@ class enum(obj):
     python_enum: type[Enum]
     """The backing Python enum."""
 
-    _backing_type: type[obj]
-    """The backing type."""
+    _backing_type: obj
+    """The inflated backing instance."""
 
     lenient: bool
     """Whether the conversion is lenient or not."""

@@ -94,7 +94,7 @@ class union(obj):
             v.freeze()
         super().freeze()
 
-    def diff(self: union) -> tuple[object, object]:
+    def diff(self: union) -> tuple[object, object] | dict[str, tuple[object, object]]:
         """Return the difference between the frozen and current value."""
         if self._variant is not None:
             return self._variant.diff()

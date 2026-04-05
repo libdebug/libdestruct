@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from libdestruct.backing.resolver import Resolver
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class MemoryResolver(Resolver):
     """A class that can resolve itself to a value in a referenced memory storage."""
 
-    def __init__(self: MemoryResolver, memory: MutableSequence, address: int | None, endianness: str = "little") -> None:
+    def __init__(self: MemoryResolver, memory: MutableSequence, address: int | None, endianness: Literal["little", "big"] = "little") -> None:
         """Initializes a basic memory resolver."""
         self.memory = memory
         self.address = address

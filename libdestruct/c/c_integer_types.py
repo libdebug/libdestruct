@@ -28,6 +28,7 @@ class _c_integer(obj):
     def to_bytes(self: _c_integer) -> bytes:
         """Return the serialized representation of the object."""
         if self._frozen:
+            assert isinstance(self._frozen_value, int)
             return self._frozen_value.to_bytes(self.size, self.endianness, signed=self.signed)
 
         return self.resolver.resolve(self.size, 0)

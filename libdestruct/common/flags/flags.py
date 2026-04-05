@@ -30,8 +30,8 @@ class flags(obj):
     python_flag: type[IntFlag]
     """The backing Python IntFlag."""
 
-    _backing_type: type[obj]
-    """The backing type."""
+    _backing_type: obj
+    """The inflated backing instance."""
 
     lenient: bool
     """Whether the conversion is lenient or not."""
