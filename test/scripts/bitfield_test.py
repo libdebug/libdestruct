@@ -157,5 +157,47 @@ class BitfieldFreezeTest(unittest.TestCase):
         self.assertEqual(s.to_bytes(), original_bytes)
 
 
+class BitfieldFreezeSafetyTest(unittest.TestCase):
+    """Frozen bitfields must reject writes even for non-owners."""
+
+    def test_non_owner_bitfield_rejects_write_after_freeze(self):
+        """The second bitfield in a group (non-owner) must reject writes when frozen."""
+        class s_t(struct):
+            a: c_uint = bitfield_of(c_uint, 1)
+            b: c_uint = bitfield_of(c_uint, 1)
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        s = lib.inflate(s_t, 0)
+
+        s.a.value = 1
+        s.b.value = 1
+
+        s.freeze()
+
+        with self.assertRaises(ValueError):
+            s.a.value = 0
+
+        with self.assertRaises(ValueError):
+            s.b.value = 0
+
+    def test_individually_frozen_non_owner_rejects_write(self):
+        """Freezing a non-owner bitfield individually must also reject writes."""
+        class s_t(struct):
+            a: c_uint = bitfield_of(c_uint, 1)
+            b: c_uint = bitfield_of(c_uint, 1)
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        s = lib.inflate(s_t, 0)
+
+        s.b.value = 1
+
+        s.b.freeze()
+
+        with self.assertRaises(ValueError):
+            s.b.value = 0
+
+
 if __name__ == "__main__":
     unittest.main()

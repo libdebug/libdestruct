@@ -308,3 +308,55 @@ class BitfieldAlignmentTest(unittest.TestCase):
         s = s_t.from_bytes(memory)
         self.assertEqual(s.a.value, 0x41)
         self.assertEqual(s.flags.value, 5)
+
+
+class AlignedStructTailPaddingInstanceTest(unittest.TestCase):
+    """Instance size must include tail padding for aligned structs."""
+
+    def test_instance_size_matches_class_size(self):
+        """size_of(instance) should equal size_of(class) for aligned structs."""
+        class aligned_t(struct):
+            _aligned_ = True
+            a: c_int
+            b: c_char
+
+        self.assertEqual(size_of(aligned_t), 8)
+
+        memory = pystruct.pack("<ib", 42, 0x41) + b"\x00" * 3
+        s = aligned_t.from_bytes(memory)
+
+        self.assertEqual(size_of(s), 8)
+
+    def test_to_bytes_includes_tail_padding(self):
+        """to_bytes() should return 8 bytes (including tail padding), not 5."""
+        class aligned_t(struct):
+            _aligned_ = True
+            a: c_int
+            b: c_char
+
+        memory = pystruct.pack("<ib", 42, 0x41) + b"\x00" * 3
+        s = aligned_t.from_bytes(memory)
+
+        self.assertEqual(len(s.to_bytes()), 8)
+
+    def test_nested_aligned_struct_tail_padding(self):
+        """Nested aligned structs should also have correct tail padding."""
+        class inner_t(struct):
+            _aligned_ = True
+            x: c_int
+            y: c_char
+
+        class outer_t(struct):
+            _aligned_ = True
+            a: inner_t
+            b: c_int
+
+        self.assertEqual(size_of(inner_t), 8)
+
+        memory = b"\x00" * 16
+        s = outer_t.from_bytes(memory)
+        self.assertEqual(size_of(s), size_of(outer_t))
+
+
+if __name__ == "__main__":
+    unittest.main()

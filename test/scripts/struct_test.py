@@ -651,5 +651,58 @@ class HexdumpBitfieldAnnotationsTest(unittest.TestCase):
         self.assertIn("execute", dump)
 
 
+class StructAttributeCollisionTest(unittest.TestCase):
+    """Struct members named after internal attributes must not break core methods."""
+
+    def test_struct_with_frozen_field_to_bytes(self):
+        """A struct with a field named '_frozen' must still serialize correctly after freeze."""
+        class s_t(struct):
+            _frozen: c_int
+            b: c_int
+
+        memory = b""
+        memory += (10).to_bytes(4, "little")
+        memory += (20).to_bytes(4, "little")
+
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.to_bytes(), memory)
+
+    def test_struct_with_frozen_field_hexdump(self):
+        """A struct with a '_frozen' field must still produce a hexdump."""
+        class s_t(struct):
+            _frozen: c_int
+
+        s = s_t.from_bytes((42).to_bytes(4, "little"))
+        dump = s.hexdump()
+        self.assertIn("2a", dump)
+
+    def test_struct_with_members_field_eq(self):
+        """A struct with a field named '_members' must still support equality."""
+        class s_t(struct):
+            _members: c_int
+
+        a = s_t.from_bytes((1).to_bytes(4, "little"))
+        b = s_t.from_bytes((1).to_bytes(4, "little"))
+        self.assertEqual(a, b)
+
+    def test_struct_with_members_field_to_dict(self):
+        """A struct with a field named '_members' must still support to_dict."""
+        class s_t(struct):
+            _members: c_int
+
+        s = s_t.from_bytes((5).to_bytes(4, "little"))
+        d = s.to_dict()
+        self.assertEqual(d["_members"], 5)
+
+    def test_struct_with_frozen_struct_bytes_field(self):
+        """A field named '_frozen_struct_bytes' must not break freeze/to_bytes."""
+        class s_t(struct):
+            _frozen_struct_bytes: c_int
+
+        memory = (99).to_bytes(4, "little")
+        s = s_t.from_bytes(memory)
+        self.assertEqual(s.to_bytes(), memory)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ from libdestruct import (
     inflater, struct, ptr, ptr_to_self, size_of, array_of,
 )
 from libdestruct.backing.memory_resolver import MemoryResolver
+from libdestruct.common.type_registry import TypeRegistry
 
 
 class ObjFromBytesTest(unittest.TestCase):
@@ -614,8 +615,6 @@ class FloatIntConversionTest(unittest.TestCase):
 class PtrStructArithmeticTest(unittest.TestCase):
     def test_ptr_add_struct_element_size(self):
         """Pointer arithmetic scales by struct element size."""
-        from libdestruct.common.type_registry import TypeRegistry
-
         class point_t(struct):
             x: c_int
             y: c_int
@@ -627,6 +626,290 @@ class PtrStructArithmeticTest(unittest.TestCase):
         p.wrapper = TypeRegistry().inflater_for(point_t)
         p2 = p + 1
         self.assertEqual(p2.get(), size_of(point_t))  # 0 + 8 = 8
+
+
+class FloatDuplicationRegressionTest(unittest.TestCase):
+    """After refactoring c_float/c_double to a shared base, core behavior must be preserved."""
+
+    def test_c_float_read_write(self):
+        memory = bytearray(4)
+        lib = inflater(memory)
+        f = lib.inflate(c_float, 0)
+        f.value = 3.14
+        self.assertAlmostEqual(f.value, 3.14, places=5)
+
+    def test_c_double_read_write(self):
+        memory = bytearray(8)
+        lib = inflater(memory)
+        d = lib.inflate(c_double, 0)
+        d.value = 2.718281828
+        self.assertAlmostEqual(d.value, 2.718281828, places=8)
+
+    def test_c_float_freeze_diff_reset(self):
+        memory = bytearray(4)
+        lib = inflater(memory)
+        f = lib.inflate(c_float, 0)
+        f.value = 1.5
+        f.freeze()
+        self.assertAlmostEqual(f.value, 1.5, places=5)
+        with self.assertRaises(ValueError):
+            f.value = 2.0
+
+    def test_c_double_freeze_diff_reset(self):
+        memory = bytearray(8)
+        lib = inflater(memory)
+        d = lib.inflate(c_double, 0)
+        d.value = 1.5
+        d.freeze()
+        self.assertAlmostEqual(d.value, 1.5, places=5)
+        with self.assertRaises(ValueError):
+            d.value = 2.0
+
+    def test_c_float_from_bytes(self):
+        data = pystruct.pack("<f", 42.0)
+        f = c_float.from_bytes(data)
+        self.assertAlmostEqual(f.value, 42.0, places=5)
+
+    def test_c_double_from_bytes(self):
+        data = pystruct.pack("<d", 42.0)
+        d = c_double.from_bytes(data)
+        self.assertAlmostEqual(d.value, 42.0, places=8)
+
+    def test_c_float_int_conversion(self):
+        data = pystruct.pack("<f", 3.7)
+        f = c_float.from_bytes(data)
+        self.assertEqual(int(f), 3)
+
+    def test_c_double_int_conversion(self):
+        data = pystruct.pack("<d", 3.7)
+        d = c_double.from_bytes(data)
+        self.assertEqual(int(d), 3)
+
+    def test_c_float_to_bytes_round_trip(self):
+        original = pystruct.pack("<f", 1.5)
+        f = c_float.from_bytes(original)
+        self.assertEqual(f.to_bytes(), original)
+
+    def test_c_double_to_bytes_round_trip(self):
+        original = pystruct.pack("<d", 1.5)
+        d = c_double.from_bytes(original)
+        self.assertEqual(d.to_bytes(), original)
+
+    def test_c_float_size(self):
+        self.assertEqual(c_float.size, 4)
+
+    def test_c_double_size(self):
+        self.assertEqual(c_double.size, 8)
+
+    def test_c_float_big_endian(self):
+        original = pystruct.pack(">f", 3.14)
+        f = c_float.from_bytes(original, endianness="big")
+        self.assertAlmostEqual(f.value, 3.14, places=5)
+        self.assertEqual(f.to_bytes(), original)
+
+    def test_c_double_big_endian(self):
+        original = pystruct.pack(">d", 2.718)
+        d = c_double.from_bytes(original, endianness="big")
+        self.assertAlmostEqual(d.value, 2.718, places=3)
+        self.assertEqual(d.to_bytes(), original)
+
+
+class ComparisonOperatorSafetyTest(unittest.TestCase):
+    """Comparison operators must not raise TypeError for incompatible obj types."""
+
+    def test_lt_primitive_vs_struct_returns_not_implemented(self):
+        """c_int < struct should return NotImplemented, not raise TypeError."""
+        class s_t(struct):
+            x: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        val = lib.inflate(c_int, 0)
+        s = lib.inflate(s_t, 0)
+
+        result = val.__lt__(s)
+        self.assertIs(result, NotImplemented)
+
+    def test_gt_primitive_vs_struct_returns_not_implemented(self):
+        class s_t(struct):
+            x: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        val = lib.inflate(c_int, 0)
+        s = lib.inflate(s_t, 0)
+
+        result = val.__gt__(s)
+        self.assertIs(result, NotImplemented)
+
+    def test_le_primitive_vs_struct_returns_not_implemented(self):
+        class s_t(struct):
+            x: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        val = lib.inflate(c_int, 0)
+        s = lib.inflate(s_t, 0)
+
+        result = val.__le__(s)
+        self.assertIs(result, NotImplemented)
+
+    def test_ge_primitive_vs_struct_returns_not_implemented(self):
+        class s_t(struct):
+            x: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        val = lib.inflate(c_int, 0)
+        s = lib.inflate(s_t, 0)
+
+        result = val.__ge__(s)
+        self.assertIs(result, NotImplemented)
+
+    def test_eq_primitive_vs_struct_returns_not_implemented(self):
+        class s_t(struct):
+            x: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        val = lib.inflate(c_int, 0)
+        s = lib.inflate(s_t, 0)
+
+        result = val.__eq__(s)
+        self.assertIs(result, NotImplemented)
+
+    def test_ne_primitive_vs_struct_returns_not_implemented(self):
+        class s_t(struct):
+            x: c_int
+
+        memory = bytearray(4)
+        lib = inflater(memory)
+        val = lib.inflate(c_int, 0)
+        s = lib.inflate(s_t, 0)
+
+        result = val.__ne__(s)
+        self.assertIs(result, NotImplemented)
+
+    def test_lt_between_compatible_primitives_works(self):
+        """Comparisons between compatible primitives should still work."""
+        memory = bytearray(8)
+        lib = inflater(memory)
+        a = lib.inflate(c_int, 0)
+        b = lib.inflate(c_int, 4)
+        a.value = 1
+        b.value = 2
+
+        self.assertTrue(a < b)
+        self.assertFalse(b < a)
+
+    def test_comparison_with_raw_int(self):
+        memory = bytearray(4)
+        lib = inflater(memory)
+        a = lib.inflate(c_int, 0)
+        a.value = 5
+
+        self.assertTrue(a < 10)
+        self.assertTrue(a > 2)
+        self.assertTrue(a <= 5)
+        self.assertTrue(a >= 5)
+
+
+class PtrUnwrapLengthZeroTest(unittest.TestCase):
+    """ptr.unwrap(0) must read 0 bytes, not 1."""
+
+    def test_unwrap_length_zero_returns_empty(self):
+        """unwrap(0) should return 0 bytes, not 1 byte."""
+        memory = bytearray(16)
+        memory[0:8] = (8).to_bytes(8, "little")
+        memory[8] = 0xAB
+
+        p = ptr(MemoryResolver(memory, 0))
+
+        result = p.unwrap(0)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(result, b"")
+
+    def test_unwrap_length_none_returns_one_byte(self):
+        """unwrap() (default None) should still return 1 byte."""
+        memory = bytearray(16)
+        memory[0:8] = (8).to_bytes(8, "little")
+        memory[8] = 0xAB
+
+        p = ptr(MemoryResolver(memory, 0))
+
+        result = p.unwrap()
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result, bytes([0xAB]))
+
+    def test_try_unwrap_length_zero(self):
+        """try_unwrap(0) should also return empty bytes, not 1 byte."""
+        memory = bytearray(16)
+        memory[0:8] = (8).to_bytes(8, "little")
+        memory[8] = 0xAB
+
+        p = ptr(MemoryResolver(memory, 0))
+
+        result = p.try_unwrap(0)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 0)
+
+
+class TypeRegistryDeduplicationTest(unittest.TestCase):
+    """Repeated handler registration must not accumulate duplicates."""
+
+    def test_generic_handler_not_duplicated(self):
+        """Registering the same handler twice must not produce duplicate entries."""
+        registry = TypeRegistry()
+
+        class DummyType:
+            pass
+
+        def dummy_handler(item, args, owner):
+            return None
+
+        initial_count = len(registry.generic_handlers.get(DummyType, []))
+
+        registry.register_generic_handler(DummyType, dummy_handler)
+        registry.register_generic_handler(DummyType, dummy_handler)
+
+        count = len(registry.generic_handlers[DummyType])
+        self.assertEqual(count, initial_count + 1)
+
+    def test_instance_handler_not_duplicated(self):
+        """Registering the same instance handler twice must not produce duplicate entries."""
+        registry = TypeRegistry()
+
+        class DummyField:
+            pass
+
+        def dummy_handler(item, annotation, owner):
+            return None
+
+        initial_count = len(registry.instance_handlers.get(DummyField, []))
+
+        registry.register_instance_handler(DummyField, dummy_handler)
+        registry.register_instance_handler(DummyField, dummy_handler)
+
+        count = len(registry.instance_handlers[DummyField])
+        self.assertEqual(count, initial_count + 1)
+
+    def test_type_handler_not_duplicated(self):
+        """Registering the same type handler twice must not produce duplicate entries."""
+        registry = TypeRegistry()
+
+        class DummyParent:
+            pass
+
+        def dummy_handler(item):
+            return None
+
+        initial_count = len(registry.type_handlers.get(DummyParent, []))
+
+        registry.register_type_handler(DummyParent, dummy_handler)
+        registry.register_type_handler(DummyParent, dummy_handler)
+
+        count = len(registry.type_handlers[DummyParent])
+        self.assertEqual(count, initial_count + 1)
 
 
 if __name__ == "__main__":

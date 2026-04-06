@@ -4,11 +4,13 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
+import inspect
 import unittest
 
 from libdestruct import c_int, c_str, c_uint, inflater, struct, ptr, ptr_to_self
 from libdestruct.backing.fake_resolver import FakeResolver
 from libdestruct.backing.memory_resolver import MemoryResolver
+from libdestruct.backing.resolver import Resolver
 
 
 class FakeResolverTest(unittest.TestCase):
@@ -105,6 +107,23 @@ class MemoryResolverTest(unittest.TestCase):
 
         obj.value = 0xDEADBEEF
         self.assertEqual(obj.value, 0xDEADBEEF)
+
+
+class ResolverParameterNameTest(unittest.TestCase):
+    """Resolver method parameter names must match documentation."""
+
+    def test_resolve_parameter_name_is_index(self):
+        """Resolver.resolve second parameter should be 'index', not 'offset'."""
+        sig = inspect.signature(Resolver.resolve)
+        params = list(sig.parameters.keys())
+        self.assertEqual(params[2], "index")
+
+    def test_relative_from_own_parameter_names(self):
+        """Resolver.relative_from_own parameters should be address_offset, index_offset."""
+        sig = inspect.signature(Resolver.relative_from_own)
+        params = list(sig.parameters.keys())
+        self.assertEqual(params[1], "address_offset")
+        self.assertEqual(params[2], "index_offset")
 
 
 if __name__ == "__main__":

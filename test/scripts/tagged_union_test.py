@@ -7,7 +7,7 @@
 import struct as pystruct
 import unittest
 
-from libdestruct import c_float, c_int, c_long, inflater, size_of, struct
+from libdestruct import c_char, c_float, c_int, c_long, inflater, size_of, struct
 from libdestruct.common.union import tagged_union, union, union_of
 
 
@@ -223,3 +223,65 @@ class UnionFreezeTest(unittest.TestCase):
         pystruct.pack_into("<i", memory, 0, 99)
         s.data.reset()
         self.assertEqual(s.data.i.value, original_i)
+
+
+class UnionGetAttrSafetyTest(unittest.TestCase):
+    """union.__getattr__ must produce clear errors, not internal AttributeError."""
+
+    def test_missing_attribute_error_message(self):
+        """Accessing a nonexistent attribute on a union should mention the attribute name, not '_variants'."""
+        u = union(None, None, 4)
+        with self.assertRaises(AttributeError) as ctx:
+            _ = u.nonexistent_attr
+        self.assertIn("nonexistent_attr", str(ctx.exception))
+        self.assertNotIn("_variants", str(ctx.exception))
+
+    def test_getattr_after_del_variants(self):
+        """Even if _variants is somehow missing, __getattr__ should not expose internal details."""
+        u = union(None, None, 4)
+        del u.__dict__["_variants"]
+        with self.assertRaises(AttributeError) as ctx:
+            _ = u.something
+        self.assertIn("something", str(ctx.exception))
+
+
+class _aligned_plain_union_t(struct):
+    _aligned_ = True
+    tag: c_char
+    data: union = union_of({"i": c_int, "c": c_char})
+
+
+class _aligned_tagged_union_t(struct):
+    _aligned_ = True
+    type: c_char
+    payload: union = tagged_union("type", {0: c_int})
+
+
+class UnionAlignmentInstanceTest(unittest.TestCase):
+    """union/tagged_union fields must get correct offsets in aligned struct instances."""
+
+    def test_plain_union_alignment(self):
+        """Plain union should be aligned to its max member alignment."""
+        memory = bytearray(8)
+        memory[0] = 0x41
+        memory[4:8] = (42).to_bytes(4, "little")
+
+        lib = inflater(memory)
+        s = lib.inflate(_aligned_plain_union_t, 0)
+        offsets = object.__getattribute__(s, "_member_offsets")
+
+        self.assertEqual(offsets["data"], 4)
+        self.assertEqual(s.data.i.value, 42)
+
+    def test_tagged_union_alignment(self):
+        """Tagged union should also be aligned correctly."""
+        memory = bytearray(8)
+        memory[0] = 0
+        memory[4:8] = (42).to_bytes(4, "little")
+
+        lib = inflater(memory)
+        s = lib.inflate(_aligned_tagged_union_t, 0)
+        offsets = object.__getattribute__(s, "_member_offsets")
+
+        self.assertEqual(offsets["payload"], 4)
+        self.assertEqual(s.payload.value, 42)
