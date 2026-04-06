@@ -543,8 +543,8 @@ class LazyPtrFieldUnresolvableTest(unittest.TestCase):
         from typing import ForwardRef
         from libdestruct.common.forward_ref_inflater import _LazyPtrField
 
-        # This will raise a SyntaxError or NameError during eval
-        lazy = _LazyPtrField(ForwardRef("???invalid???"), owner=None)
+        # Valid syntax but unresolvable name → NameError during eval
+        lazy = _LazyPtrField(ForwardRef("NoSuchTypeAnywhere"), owner=None)
         result = lazy._resolve_forward_ref()
         self.assertIsNone(result)
 
