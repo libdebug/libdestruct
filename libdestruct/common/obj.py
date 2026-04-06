@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 from libdestruct.common.hexdump import format_hexdump
 
@@ -19,7 +19,7 @@ T = TypeVar("T")
 class obj(ABC, Generic[T]):
     """A generic object, with reference to the backing memory view."""
 
-    endianness: str = "little"
+    endianness: Literal["little", "big"] = "little"
     """The endianness of the backing reference view."""
 
     resolver: Resolver
@@ -31,7 +31,7 @@ class obj(ABC, Generic[T]):
     _frozen_value: object = None
     """The frozen value of the object."""
 
-    def __init__(self: obj, resolver: Resolver) -> None:
+    def __init__(self: obj, resolver: Resolver | None) -> None:
         """Initialize a generic object.
 
         Args:
@@ -59,7 +59,7 @@ class obj(ABC, Generic[T]):
         """Serialize the object to bytes."""
 
     @classmethod
-    def from_bytes(cls: type[obj], data: bytes, endianness: str = "little") -> obj:
+    def from_bytes(cls: type[obj], data: bytes, endianness: Literal["little", "big"] = "little") -> obj:
         """Deserialize the object from bytes."""
         from libdestruct.libdestruct import inflater
 

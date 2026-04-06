@@ -58,7 +58,7 @@ class IntEnumField(EnumField):
             case _:
                 raise ValueError("The size of the field must be a power of 2.")
 
-    def inflate(self: IntEnumField, resolver: Resolver) -> int:
+    def inflate(self: IntEnumField, resolver: Resolver) -> enum:
         """Inflate the field.
 
         Args:

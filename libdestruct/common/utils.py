@@ -15,7 +15,7 @@ from libdestruct.common.field import Field
 from libdestruct.common.type_registry import TypeRegistry
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from libdestruct.backing.resolver import Resolver
     from libdestruct.common.obj import obj
@@ -26,7 +26,7 @@ def is_field_bound_method(item: obj) -> bool:
     return isinstance(item, MethodType) and isinstance(item.__self__, Field)
 
 
-def size_of(item_or_inflater: obj | callable[[Resolver], obj]) -> int:
+def size_of(item_or_inflater: obj | Callable[[Resolver], obj]) -> int:
     """Return the size in bytes of a type, instance, or field descriptor."""
     # Field instances (e.g. array_of, ptr_to) — must come before .size check
     if isinstance(item_or_inflater, Field):

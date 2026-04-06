@@ -34,10 +34,37 @@ dependencies = ["typing_extensions", "pycparser"]
 [project.optional-dependencies]
 dev = [
     "rich",
+    "ty",
 ]
 
 [tool.setuptools.packages.find]
 include = ["libdestruct*"]
+
+[tool.ty.src]
+exclude = ["test/", "build/"]
+
+[tool.ty.rules]
+# -- Dynamic metaclass/descriptor inflation pattern --
+# The type registry, struct metaclass, and descriptor protocol resolve attributes
+# at runtime in ways that ty cannot yet follow (_type_impl, _member_offsets, etc).
+unresolved-attribute = "ignore"
+
+# -- Rules that caught real bugs --
+# Keep as warn until annotations are improved, then promote to error.
+invalid-return-type = "warn"       # union.diff() returns dict, ptr.__getitem__ returns bytes
+invalid-argument-type = "warn"     # union.__init__ passes None as Resolver
+invalid-type-form = "warn"         # lowercase `callable`, `iter` as type, `...` as annotation
+missing-argument = "warn"          # wrong _backing_type: type[obj] (should be obj) in enum/flags
+too-many-positional-arguments = "warn"  # array.__setitem__ calls set() with wrong arity
+
+# -- Intentional design patterns --
+invalid-method-override = "warn"   # deliberate param narrowing in _set/set overrides (LSP)
+invalid-assignment = "warn"        # _backing_type instance vs type confusion; descriptor __set__
+unsupported-operator = "warn"      # obj.get() returns `object`, operators on result untypeable
+call-non-callable = "warn"         # dynamic inflater dispatch: resolved_type(resolver)
+not-subscriptable = "warn"         # object.__setattr__ hides dict types from checker
+no-matching-overload = "warn"      # untyped dict in struct_parser
+invalid-yield = "warn"             # yield from dynamic __getitem__ typed as object
 
 [tool.ruff]
 line-length = 120

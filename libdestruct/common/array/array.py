@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Iterator
 from types import GenericAlias
 
 from libdestruct.common.obj import obj
@@ -42,7 +43,7 @@ class array(obj):
         self.set(index, value)
 
     @abstractmethod
-    def __iter__(self: array) -> iter:
+    def __iter__(self: array) -> Iterator:
         """Return an iterator over the array."""
 
     def __contains__(self: array, value: object) -> bool:

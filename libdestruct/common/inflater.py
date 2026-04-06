@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from libdestruct.backing.memory_resolver import MemoryResolver
 from libdestruct.common.type_registry import TypeRegistry
@@ -21,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class Inflater:
     """The memory manager, which inflates any memory-referencing type."""
 
-    def __init__(self: Inflater, memory: MutableSequence, endianness: str = "little") -> None:
+    def __init__(self: Inflater, memory: MutableSequence, endianness: Literal["little", "big"] = "little") -> None:
         """Initialize the memory manager."""
         self.memory = memory
         self.endianness = endianness

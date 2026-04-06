@@ -33,7 +33,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install ruff
+        python -m pip install ruff ty
 
     - name: Lint with Ruff on a basic set of rules
       run: |
@@ -42,3 +42,7 @@ jobs:
     - name: Lint with Ruff on an extended ruleset but always return success
       run: |
         ruff check libdestruct --output-format=github --exit-zero
+
+    - name: Type check with ty
+      run: |
+        ty check --output-format=github

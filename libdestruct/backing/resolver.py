@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from typing_extensions import Self
 
@@ -16,7 +17,7 @@ class Resolver(ABC):
 
     parent: Self
 
-    endianness: str = "little"
+    endianness: Literal["little", "big"] = "little"
     """The endianness of the data this resolver accesses."""
 
     @abstractmethod

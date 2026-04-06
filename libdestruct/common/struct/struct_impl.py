@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from types import GenericAlias
-from typing import Annotated, get_args, get_origin
+from typing import Annotated, Any, get_args, get_origin
 
 from typing_extensions import Self
 
@@ -37,7 +37,7 @@ class struct_impl(struct):
     _inflater: TypeRegistry = TypeRegistry()
     """The type registry, used for inflating the attributes."""
 
-    def __init__(self: struct_impl, resolver: Resolver | None = None, **kwargs: ...) -> None:
+    def __init__(self: struct_impl, resolver: Resolver | None = None, **kwargs: Any) -> None:
         """Initialize the struct implementation."""
         # If we have kwargs and the resolver is None, we provide a fake resolver
         if kwargs and resolver is None:
@@ -80,7 +80,7 @@ class struct_impl(struct):
             pass
         object.__setattr__(self, name, value)
 
-    def __new__(cls: struct_impl, *args: ..., **kwargs: ...) -> Self:
+    def __new__(cls: struct_impl, *args: Any, **kwargs: Any) -> Self:
         """Create a new struct."""
         # Skip the __new__ method of the parent class
         # struct_impl -> struct -> obj becomes struct_impl -> obj

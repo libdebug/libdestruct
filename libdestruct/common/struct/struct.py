@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 from libdestruct.common.obj import obj
 from libdestruct.common.type_registry import TypeRegistry
@@ -23,14 +23,14 @@ class struct(obj):
         """Initialize the struct."""
         raise RuntimeError("This type should not be directly instantiated.")
 
-    def __new__(cls: type[struct], *args: ..., **kwargs: ...) -> struct:  # noqa: PYI034
+    def __new__(cls: type[struct], *args: Any, **kwargs: Any) -> struct:  # noqa: PYI034
         """Create a new struct."""
         # Look for an inflater for this struct
         type_impl = TypeRegistry().inflater_for(cls)
         return type_impl(*args, **kwargs)
 
     @classmethod
-    def from_bytes(cls: type[struct], data: bytes, endianness: str = "little") -> struct_impl:
+    def from_bytes(cls: type[struct], data: bytes, endianness: Literal["little", "big"] = "little") -> struct_impl:
         """Create a struct from a serialized representation."""
         type_inflater = inflater(data, endianness=endianness)
 
