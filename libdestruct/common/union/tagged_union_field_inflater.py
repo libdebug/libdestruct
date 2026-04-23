@@ -40,20 +40,32 @@ def tagged_union_field_inflater(
     struct_instance = owner[0]
 
     def inflate_with_discriminator(resolver: Resolver) -> union:
-        members = object.__getattribute__(struct_instance, "_members")
-        disc_value = members[field.discriminator].value
+        # Per-instance variant cache so repeat reads of the same discriminator value
+        # return the same variant object (stable identity), but a discriminator change
+        # transparently switches to a different variant.
+        variant_cache: dict[object, object] = {}
 
-        if disc_value not in field.variants:
-            raise ValueError(
-                f"Unknown discriminator value {disc_value!r} for field '{field.discriminator}'. "
-                f"Valid values: {list(field.variants.keys())}"
-            )
+        def dispatcher() -> object:
+            members = object.__getattribute__(struct_instance, "_members")
+            disc_value = members[field.discriminator].value
 
-        variant_type = field.variants[disc_value]
-        variant_inflater = registry.inflater_for(variant_type)
-        variant = variant_inflater(resolver)
+            if disc_value not in field.variants:
+                raise ValueError(
+                    f"Unknown discriminator value {disc_value!r} for field '{field.discriminator}'. "
+                    f"Valid values: {list(field.variants.keys())}"
+                )
 
-        return union(resolver, variant, field.get_size())
+            cached = variant_cache.get(disc_value)
+            if cached is not None:
+                return cached
+
+            variant_type = field.variants[disc_value]
+            variant_inflater = registry.inflater_for(variant_type)
+            variant = variant_inflater(resolver)
+            variant_cache[disc_value] = variant
+            return variant
+
+        return union(resolver, None, field.get_size(), dispatcher=dispatcher)
 
     return inflate_with_discriminator
 

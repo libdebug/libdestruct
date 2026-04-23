@@ -285,3 +285,49 @@ class UnionAlignmentInstanceTest(unittest.TestCase):
 
         self.assertEqual(offsets["payload"], 4)
         self.assertEqual(s.payload.value, 42)
+
+
+class TaggedUnionLiveDispatchTest(unittest.TestCase):
+    """Tagged union variant must re-dispatch on every access when the discriminator changes in memory."""
+
+    def test_variant_changes_when_discriminator_mutates(self):
+        class msg_t(struct):
+            type: c_int
+            payload: union = tagged_union("type", {0: c_int, 1: c_float})
+
+        memory = bytearray(pystruct.pack("<i", 0) + pystruct.pack("<i", 42))
+        lib = inflater(memory)
+        msg = lib.inflate(msg_t, 0)
+        self.assertEqual(msg.payload.value, 42)
+
+        memory[0:4] = pystruct.pack("<i", 1)
+        memory[4:8] = pystruct.pack("<f", 3.14)
+        self.assertAlmostEqual(msg.payload.value, 3.14, places=2)
+
+    def test_variant_property_re_reads_discriminator(self):
+        class msg_t(struct):
+            type: c_int
+            payload: union = tagged_union("type", {0: c_int, 1: c_float})
+
+        memory = bytearray(pystruct.pack("<i", 0) + pystruct.pack("<i", 42))
+        lib = inflater(memory)
+        msg = lib.inflate(msg_t, 0)
+        first_variant = msg.payload.variant
+
+        memory[0:4] = pystruct.pack("<i", 1)
+        second_variant = msg.payload.variant
+        self.assertIsNot(first_variant, second_variant)
+
+    def test_unknown_discriminator_after_mutation_raises(self):
+        class msg_t(struct):
+            type: c_int
+            payload: union = tagged_union("type", {0: c_int, 1: c_float})
+
+        memory = bytearray(pystruct.pack("<i", 0) + pystruct.pack("<i", 42))
+        lib = inflater(memory)
+        msg = lib.inflate(msg_t, 0)
+        self.assertEqual(msg.payload.value, 42)
+
+        memory[0:4] = pystruct.pack("<i", 99)
+        with self.assertRaises(ValueError):
+            _ = msg.payload.value

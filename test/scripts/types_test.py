@@ -912,5 +912,63 @@ class TypeRegistryDeduplicationTest(unittest.TestCase):
         self.assertEqual(count, initial_count + 1)
 
 
+class PtrCacheStalenessTest(unittest.TestCase):
+    """ptr.unwrap() must observe address changes that happen via memory mutation, not just _set()."""
+
+    def test_unwrap_returns_fresh_view_when_address_bytes_change(self):
+        class Inner(struct):
+            val: c_int
+
+        class Outer(struct):
+            p: c_long  # raw 8-byte address; we'll wrap with a ptr
+
+        # Layout: 8 bytes ptr value, then two c_int payloads at 8 and 16
+        memory = bytearray(20)
+        pystruct.pack_into("<Q", memory, 0, 8)
+        pystruct.pack_into("<i", memory, 8, 42)
+        pystruct.pack_into("<i", memory, 16, 99)
+
+        # Construct ptr directly so we can use a known wrapper
+        p = ptr(MemoryResolver(memory, 0), Inner)
+        first = p.unwrap()
+        self.assertEqual(first.val.value, 42)
+
+        # Change the pointer's address bytes in memory (no _set call)
+        pystruct.pack_into("<Q", memory, 0, 16)
+        second = p.unwrap()
+        self.assertEqual(second.val.value, 99)
+        self.assertIsNot(first, second)
+
+    def test_try_unwrap_observes_address_changes(self):
+        class Inner(struct):
+            val: c_int
+
+        memory = bytearray(20)
+        pystruct.pack_into("<Q", memory, 0, 8)
+        pystruct.pack_into("<i", memory, 8, 42)
+        pystruct.pack_into("<i", memory, 16, 99)
+
+        p = ptr(MemoryResolver(memory, 0), Inner)
+        first = p.try_unwrap()
+        self.assertEqual(first.val.value, 42)
+
+        pystruct.pack_into("<Q", memory, 0, 16)
+        second = p.try_unwrap()
+        self.assertEqual(second.val.value, 99)
+        self.assertIsNot(first, second)
+
+    def test_unwrap_bytes_returns_live_data(self):
+        """When wrapper is None, unwrap returns bytes — must reflect current memory."""
+        memory = bytearray(16)
+        pystruct.pack_into("<Q", memory, 0, 8)
+        memory[8:12] = b"AAAA"
+
+        p = ptr(MemoryResolver(memory, 0))
+        self.assertEqual(p.unwrap(4), b"AAAA")
+
+        memory[8:12] = b"BBBB"
+        self.assertEqual(p.unwrap(4), b"BBBB")
+
+
 if __name__ == "__main__":
     unittest.main()
