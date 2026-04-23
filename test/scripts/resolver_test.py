@@ -126,5 +126,26 @@ class ResolverParameterNameTest(unittest.TestCase):
         self.assertEqual(params[2], "index_offset")
 
 
+class MemoryReadOnlyTest(unittest.TestCase):
+    """Reassigning a resolver's memory is not supported and must raise."""
+
+    def test_memory_resolver_reassignment_raises(self):
+        resolver = MemoryResolver(bytearray(8), 0)
+        with self.assertRaises(AttributeError):
+            resolver.memory = bytearray(8)
+
+    def test_fake_resolver_reassignment_raises(self):
+        resolver = FakeResolver()
+        with self.assertRaises(AttributeError):
+            resolver.memory = {}
+
+    def test_memory_resolver_in_place_mutation_still_works(self):
+        """Sanity: in-place mutation of the underlying buffer is the supported path."""
+        memory = bytearray((1).to_bytes(4, "little"))
+        resolver = MemoryResolver(memory, 0)
+        memory[0:4] = (42).to_bytes(4, "little")
+        self.assertEqual(int.from_bytes(resolver.resolve(4, 0), "little"), 42)
+
+
 if __name__ == "__main__":
     unittest.main()

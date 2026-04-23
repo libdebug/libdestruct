@@ -14,11 +14,16 @@ class FakeResolver(Resolver):
 
     def __init__(self: FakeResolver, memory: dict | None = None, address: int | None = 0, endianness: str = "little") -> None:
         """Initializes a basic fake resolver."""
-        self.memory = memory if memory is not None else {}
+        self._memory = memory if memory is not None else {}
         self.address = address
         self.parent = None
         self.offset = None
         self.endianness = endianness
+
+    @property
+    def memory(self: FakeResolver) -> dict:
+        """The backing page dict. Read-only — mutate in place instead of reassigning."""
+        return self._memory
 
     def resolve_address(self: FakeResolver) -> int:
         """Resolves self's address, mainly used by children to determine their own address."""

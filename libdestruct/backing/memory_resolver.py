@@ -19,11 +19,16 @@ class MemoryResolver(Resolver):
 
     def __init__(self: MemoryResolver, memory: MutableSequence, address: int | None, endianness: str = "little") -> None:
         """Initializes a basic memory resolver."""
-        self.memory = memory
+        self._memory = memory
         self.address = address
         self.parent = None
         self.offset = None
         self.endianness = endianness
+
+    @property
+    def memory(self: MemoryResolver) -> MutableSequence:
+        """The backing memory buffer. Read-only — mutate in place instead of reassigning."""
+        return self._memory
 
     def resolve_address(self: MemoryResolver) -> int:
         """Resolves self's address, mainly used by childs to determine their own address."""
