@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from libdestruct.c.c_integer_types import c_char, c_int, c_long, c_short
+from libdestruct.c.c_integer_types import signed_integer_for_size
 from libdestruct.common.flags.flags import flags
 from libdestruct.common.flags.flags_field import FlagsField
 
@@ -36,20 +36,7 @@ class IntFlagField(FlagsField):
             self.backing_type = backing_type
             return
 
-        if not 0 < size <= 8:
-            raise ValueError("The size of the field must be between 1 and 8 bytes.")
-
-        match size:
-            case 1:
-                self.backing_type = c_char
-            case 2:
-                self.backing_type = c_short
-            case 4:
-                self.backing_type = c_int
-            case 8:
-                self.backing_type = c_long
-            case _:
-                raise ValueError("The size of the field must be a power of 2.")
+        self.backing_type = signed_integer_for_size(size)
 
     def inflate(self: IntFlagField, resolver: Resolver) -> flags:
         """Inflate the field."""

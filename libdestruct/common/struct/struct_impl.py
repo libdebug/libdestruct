@@ -39,14 +39,13 @@ class struct_impl(struct):
 
     def __init__(self: struct_impl, resolver: Resolver | None = None, **kwargs: ...) -> None:
         """Initialize the struct implementation."""
-        # If we have kwargs and the resolver is None, we provide a fake resolver
         if kwargs and resolver is None:
             resolver = FakeResolver()
 
         if not isinstance(resolver, Resolver):
             raise TypeError("The resolver must be a Resolver instance.")
 
-        # struct overrides the __init__ method, so we need to call the parent class __init__ method
+        # struct.__init__ raises by design; bypass it and call obj.__init__ directly.
         obj.__init__(self, resolver)
 
         object.__setattr__(self, "_struct_name", self.__class__.__name__)
@@ -81,9 +80,7 @@ class struct_impl(struct):
         object.__setattr__(self, name, value)
 
     def __new__(cls: struct_impl, *args: ..., **kwargs: ...) -> Self:
-        """Create a new struct."""
-        # Skip the __new__ method of the parent class
-        # struct_impl -> struct -> obj becomes struct_impl -> obj
+        """Create a new struct, bypassing struct.__new__ which is for the user-facing factory."""
         return obj.__new__(cls)
 
     def _inflate_struct_attributes(
@@ -152,13 +149,12 @@ class struct_impl(struct):
                 max_alignment = max(max_alignment, aligned)
             current_offset = _align_offset(current_offset, max_alignment)
 
-        # For VLA structs, size must be computed dynamically since the count
-        # can change at runtime.  Detect VLA by duck-typing: vla_impl has a
-        # _count_member attribute that plain array_impl does not.
+        # VLA detection uses duck-typing on _count_member to avoid a circular
+        # import between struct_impl and vla_impl (vla_impl extends array_impl,
+        # which imports struct).
         members = object.__getattribute__(self, "_members")
-        last_member = list(members.values())[-1] if members else None
+        last_name, last_member = next(reversed(members.items()), (None, None))
         if last_member is not None and hasattr(last_member, "_count_member"):
-            last_name = list(members.keys())[-1]
             object.__setattr__(self, "_vla_fixed_offset", self._member_offsets[last_name])
         else:
             object.__setattr__(self, "size", current_offset)

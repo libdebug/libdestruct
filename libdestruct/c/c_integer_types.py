@@ -127,3 +127,18 @@ class c_ulong(_c_integer):
 
     signed: bool = False
     """Whether the long is signed."""
+
+
+_SIGNED_INTEGER_BY_SIZE: dict[int, type[_c_integer]] = {
+    1: c_char,
+    2: c_short,
+    4: c_int,
+    8: c_long,
+}
+
+
+def signed_integer_for_size(size: int) -> type[_c_integer]:
+    """Return the signed C integer type for the given byte size (1, 2, 4, or 8)."""
+    if size not in _SIGNED_INTEGER_BY_SIZE:
+        raise ValueError("The size of the field must be 1, 2, 4, or 8 bytes.")
+    return _SIGNED_INTEGER_BY_SIZE[size]
