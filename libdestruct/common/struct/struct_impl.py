@@ -183,14 +183,18 @@ class struct_impl(struct):
             Either resolved_inflater or bitfield_field will be non-None (not both).
             explicit_offset is set when an OffsetAttribute is present.
         """
-        # Unwrap Annotated[type, metadata...] — extract the real type and any metadata
         annotated_offset = None
         if get_origin(annotation) is Annotated:
             ann_args = get_args(annotation)
             annotation = ann_args[0]
-            for meta in ann_args[1:]:
-                if isinstance(meta, OffsetAttribute):
-                    annotated_offset = meta.offset
+            ann_offsets = [m.offset for m in ann_args[1:] if isinstance(m, OffsetAttribute)]
+            if len(ann_offsets) > 1:
+                raise ValueError(
+                    f"Field {name!r} has multiple OffsetAttribute entries in its Annotated metadata; "
+                    f"only one is allowed.",
+                )
+            if ann_offsets:
+                annotated_offset = ann_offsets[0]
 
         if name not in reference.__dict__:
             return inflater.inflater_for(annotation, owner=owner), None, annotated_offset
@@ -201,6 +205,13 @@ class struct_impl(struct):
 
         if sum(isinstance(attr, Field) for attr in attrs) > 1:
             raise ValueError("Only one Field is allowed per attribute.")
+
+        attr_offsets = sum(isinstance(a, OffsetAttribute) for a in attrs)
+        if attr_offsets + (1 if annotated_offset is not None else 0) > 1:
+            raise ValueError(
+                f"Field {name!r} has multiple OffsetAttribute entries (across Annotated metadata "
+                f"and attribute tuple); only one is allowed.",
+            )
 
         resolved_type = None
         bitfield_field = None
@@ -231,6 +242,7 @@ class struct_impl(struct):
         bf_tracker = BitfieldTracker()
         aligned = getattr(reference_type, "_aligned_", False)
         seen_vla = False
+        seen_names: set[str] = set()
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
             if name == "_aligned_":
@@ -245,12 +257,23 @@ class struct_impl(struct):
             # Detect VLA from default value or subscript annotation
             default = getattr(reference, name, None) if hasattr(reference, name) else None
             is_vla = isinstance(default, VLAField)
-            if not is_vla and isinstance(annotation, GenericAlias):
+            count_field_name: str | None = None
+            if is_vla:
+                count_field_name = default.count_field
+            elif isinstance(annotation, GenericAlias):
                 args = annotation.__args__
                 if len(args) == 2 and isinstance(args[1], str):
                     is_vla = True
+                    count_field_name = args[1]
             if is_vla:
+                if count_field_name is not None and count_field_name not in seen_names:
+                    raise ValueError(
+                        f"VLA field {name!r} references undefined count field {count_field_name!r}. "
+                        f"The count field must be declared before the VLA in the same struct.",
+                    )
                 seen_vla = True
+
+            seen_names.add(name)
 
             resolved_type, bitfield_field, explicit_offset = struct_impl._resolve_field(
                 name, annotation, reference, cls._inflater, owner=(None, cls),
@@ -351,13 +374,13 @@ class struct_impl(struct):
         super().freeze()
 
     def reset(self: struct_impl) -> None:
-        """Reset each member to its frozen value."""
+        """Restore the struct's memory region to the bytes captured at freeze time."""
         if not object.__getattribute__(self, "_frozen"):
             raise RuntimeError("Cannot reset a struct that has not been frozen.")
 
-        members = object.__getattribute__(self, "_members")
-        for member in members.values():
-            member.reset()
+        resolver = object.__getattribute__(self, "resolver")
+        frozen_bytes = object.__getattribute__(self, "_frozen_struct_bytes")
+        resolver.modify(len(frozen_bytes), 0, frozen_bytes)
 
     def to_str(self: struct_impl, indent: int = 0) -> str:
         """Return a string representation of the struct."""
@@ -383,6 +406,8 @@ class struct_impl(struct):
         {members}
     }}
 }}"""
+
+    __hash__ = object.__hash__
 
     def __eq__(self: struct_impl, value: object) -> bool:
         """Return whether the struct is equal to the given value."""

@@ -704,5 +704,91 @@ class StructAttributeCollisionTest(unittest.TestCase):
         self.assertEqual(s.to_bytes(), memory)
 
 
+class StructResetWithCompositesTest(unittest.TestCase):
+    """struct.reset() must work for any composite member shape, including arrays."""
+
+    def test_reset_struct_with_array(self):
+        from libdestruct.backing.memory_resolver import MemoryResolver
+
+        class S(struct):
+            arr: array[c_int, 3]
+
+        memory = bytearray((1).to_bytes(4, "little") + (2).to_bytes(4, "little") + (3).to_bytes(4, "little"))
+        s = S(MemoryResolver(memory, 0))
+        s.freeze()
+        memory[0:4] = (99).to_bytes(4, "little")
+        memory[4:8] = (98).to_bytes(4, "little")
+        s.reset()
+        self.assertEqual(int.from_bytes(memory[0:4], "little"), 1)
+        self.assertEqual(int.from_bytes(memory[4:8], "little"), 2)
+
+    def test_reset_struct_with_nested_array_of_struct(self):
+        from libdestruct.backing.memory_resolver import MemoryResolver
+
+        class Inner(struct):
+            x: c_int
+
+        class Outer(struct):
+            items: array[Inner, 2]
+
+        memory = bytearray((10).to_bytes(4, "little") + (20).to_bytes(4, "little"))
+        s = Outer(MemoryResolver(memory, 0))
+        s.freeze()
+        memory[0:4] = (999).to_bytes(4, "little")
+        s.reset()
+        self.assertEqual(int.from_bytes(memory[0:4], "little"), 10)
+
+
+class AnnotatedMultipleOffsetTest(unittest.TestCase):
+    """Multiple OffsetAttribute on a single field must raise instead of silently using one."""
+
+    def test_two_offsets_in_annotated_raises(self):
+        from libdestruct.common.attributes.offset_attribute import OffsetAttribute
+        from libdestruct.backing.memory_resolver import MemoryResolver
+
+        class S(struct):
+            pad: c_int
+            field: Annotated[c_int, OffsetAttribute(4), OffsetAttribute(8)]
+
+        with self.assertRaises(ValueError):
+            S(MemoryResolver(bytearray(16), 0))
+
+    def test_offset_in_annotated_and_attribute_tuple_raises(self):
+        from libdestruct.common.attributes.offset_attribute import OffsetAttribute
+        from libdestruct.backing.memory_resolver import MemoryResolver
+
+        class S(struct):
+            pad: c_int
+            field: Annotated[c_int, OffsetAttribute(4)] = OffsetAttribute(8)
+
+        with self.assertRaises(ValueError):
+            S(MemoryResolver(bytearray(16), 0))
+
+
+class VLAUndefinedCountFieldTest(unittest.TestCase):
+    """VLA referencing a count field that doesn't exist must fail at struct definition (inflation)."""
+
+    def test_undefined_count_field_subscript_form(self):
+        from libdestruct.backing.memory_resolver import MemoryResolver
+
+        class BadVLA(struct):
+            n: c_int
+            data: array[c_int, "nonexistent_field"]
+
+        with self.assertRaises(ValueError):
+            BadVLA(MemoryResolver(bytearray(16), 0))
+
+    def test_undefined_count_field_descriptor_form(self):
+        from libdestruct.backing.memory_resolver import MemoryResolver
+        from libdestruct.common.array.vla_of import vla_of
+
+        class BadVLA(struct):
+            n: c_int
+            data: array = vla_of(c_int, "nonexistent_field")
+
+        with self.assertRaises(ValueError):
+            BadVLA(MemoryResolver(bytearray(16), 0))
+
+
 if __name__ == "__main__":
     unittest.main()

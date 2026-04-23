@@ -970,6 +970,22 @@ class PtrCacheStalenessTest(unittest.TestCase):
         self.assertEqual(p.unwrap(4), b"BBBB")
 
 
+class ObjHashableTest(unittest.TestCase):
+    """obj subclasses must be hashable (Python sets __hash__ = None when only __eq__ is defined)."""
+
+    def test_c_int_in_set(self):
+        x = c_int.from_bytes((1).to_bytes(4, "little"))
+        self.assertIn(x, {x})
+
+    def test_struct_in_dict(self):
+        class S(struct):
+            x: c_int
+
+        s = S.from_bytes((42).to_bytes(4, "little"))
+        d = {s: "value"}
+        self.assertEqual(d[s], "value")
+
+
 class PtrArithmeticSubclassTest(unittest.TestCase):
     """Pointer arithmetic must preserve subclass identity (e.g. for narrower pointer widths)."""
 
