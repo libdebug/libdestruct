@@ -59,13 +59,22 @@ class struct_impl(struct):
 
     def __getattribute__(self: struct_impl, name: str) -> object:
         """Return the attribute, checking struct members first to avoid collisions with obj properties."""
-        # Check _members dict directly to avoid infinite recursion
         try:
             members = object.__getattribute__(self, "_members")
-            if name in members:
-                return members[name]
         except AttributeError:
-            pass
+            return super().__getattribute__(name)
+        if name in members:
+            return members[name]
+        if name == "size":
+            # VLA structs store _vla_fixed_offset instead of an instance size attr;
+            # without this, `instance.size` would fall back to the static class size
+            # (set by compute_own_size), missing the dynamic VLA contribution.
+            try:
+                vla_offset = object.__getattribute__(self, "_vla_fixed_offset")
+            except AttributeError:
+                pass
+            else:
+                return vla_offset + next(reversed(members.values())).size
         return super().__getattribute__(name)
 
     def __setattr__(self: struct_impl, name: str, value: object) -> None:
