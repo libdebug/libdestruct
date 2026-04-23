@@ -970,5 +970,26 @@ class PtrCacheStalenessTest(unittest.TestCase):
         self.assertEqual(p.unwrap(4), b"BBBB")
 
 
+class PtrArithmeticSubclassTest(unittest.TestCase):
+    """Pointer arithmetic must preserve subclass identity (e.g. for narrower pointer widths)."""
+
+    def test_add_returns_same_subclass(self):
+        class ptr32(ptr):
+            size: int = 4
+
+        memory = bytearray(32)
+        p = ptr32(MemoryResolver(memory, 0), c_int)
+        self.assertIsInstance(p + 1, ptr32)
+        self.assertEqual((p + 1).size, 4)
+
+    def test_sub_returns_same_subclass(self):
+        class ptr32(ptr):
+            size: int = 4
+
+        memory = bytearray(32)
+        p = ptr32(MemoryResolver(memory, 0), c_int)
+        self.assertIsInstance(p - 1, ptr32)
+
+
 if __name__ == "__main__":
     unittest.main()

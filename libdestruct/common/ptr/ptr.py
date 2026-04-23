@@ -149,12 +149,12 @@ class ptr(obj[T]):
     def __add__(self: ptr, n: int) -> ptr:
         """Return a new pointer advanced by n elements."""
         new_addr = self.get() + n * self._element_size
-        return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
+        return type(self)(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
 
     def __sub__(self: ptr, n: int) -> ptr:
         """Return a new pointer retreated by n elements."""
         new_addr = self.get() - n * self._element_size
-        return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
+        return type(self)(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
 
     def __getitem__(self: ptr, n: int) -> obj:
         """Return the object at index n relative to this pointer."""
