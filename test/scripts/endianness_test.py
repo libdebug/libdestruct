@@ -264,5 +264,34 @@ class BigEndianBitfieldTest(unittest.TestCase):
         self.assertEqual(memory, pystruct.pack(">I", 5))
 
 
+class EndiannessValidationTest(unittest.TestCase):
+    """inflater() should reject invalid endianness strings."""
+
+    def test_invalid_endianness_raises(self):
+        """Passing a typo like 'big-endian' must raise ValueError, not silently produce wrong results."""
+        with self.assertRaises(ValueError):
+            inflater(bytearray(4), endianness="big-endian")
+
+    def test_invalid_endianness_typo(self):
+        """A random typo must raise ValueError."""
+        with self.assertRaises(ValueError):
+            inflater(bytearray(4), endianness="typo")
+
+    def test_valid_endianness_big(self):
+        """'big' is accepted without error."""
+        lib = inflater(bytearray(4), endianness="big")
+        self.assertIsNotNone(lib)
+
+    def test_valid_endianness_little(self):
+        """'little' is accepted without error."""
+        lib = inflater(bytearray(4), endianness="little")
+        self.assertIsNotNone(lib)
+
+    def test_from_bytes_invalid_endianness(self):
+        """from_bytes with invalid endianness must raise ValueError."""
+        with self.assertRaises(ValueError):
+            c_int.from_bytes(b"\x00\x00\x00\x00", endianness="big-endian")
+
+
 if __name__ == "__main__":
     unittest.main()

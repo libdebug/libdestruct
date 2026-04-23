@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 from libdestruct.common.obj import obj
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable
+
     from libdestruct.backing.resolver import Resolver
 
 
@@ -18,10 +20,13 @@ class union(obj):
     """A union value, supporting both tagged (single active variant) and plain (all variants overlaid) modes."""
 
     _variant: obj | None
-    """The single active variant (tagged union mode)."""
+    """The single active variant (tagged union mode, or snapshot after freeze)."""
 
     _variants: dict[str, obj]
     """Named variants (plain union mode)."""
+
+    _dispatcher: Callable[[], obj] | None
+    """For tagged unions: a callable that returns the current variant based on live discriminator value."""
 
     _frozen_bytes: bytes | None
     """The frozen bytes of the full union region."""
@@ -32,6 +37,7 @@ class union(obj):
         variant: obj | None,
         max_size: int,
         variants: dict[str, obj] | None = None,
+        dispatcher: Callable[[], obj] | None = None,
     ) -> None:
         """Initialize the union.
 
@@ -40,36 +46,49 @@ class union(obj):
             variant: The single active variant (tagged union mode, None for plain unions).
             max_size: The size of the union (max of all variant sizes).
             variants: Named variants dict (plain union mode, None for tagged unions).
+            dispatcher: For tagged unions, a callable returning the current variant based on
+                the live discriminator value. When set, the variant is re-dispatched on every
+                access until the union is frozen.
         """
         super().__init__(resolver)
         self._variant = variant
         self._variants = variants or {}
+        self._dispatcher = dispatcher
         self.size = max_size
         self._frozen_bytes = None
+
+    def _active_variant(self: union) -> obj | None:
+        """Return the currently-active variant, dispatching live when applicable."""
+        if self._frozen or self._dispatcher is None:
+            return self._variant
+        return self._dispatcher()
 
     @property
     def variant(self: union) -> obj | None:
         """Return the active variant object (tagged union mode)."""
-        return self._variant
+        return self._active_variant()
 
     def get(self: union) -> object:
         """Return the value of the active variant."""
-        if self._variant is not None:
-            return self._variant.get()
+        active = self._active_variant()
+        if active is not None:
+            return active.get()
         if self._variants:
             return {name: v.get() for name, v in self._variants.items()}
         return None
 
     def _set(self: union, value: object) -> None:
         """Set the value of the active variant."""
-        if self._variant is None:
+        active = self._active_variant()
+        if active is None:
             raise RuntimeError("Cannot set the value of a union without an active variant.")
-        self._variant._set(value)
+        active._set(value)
 
     def to_dict(self: union) -> object:
         """Return a JSON-serializable representation of the union."""
-        if self._variant is not None:
-            return self._variant.to_dict()
+        active = self._active_variant()
+        if active is not None:
+            return active.to_dict()
         if self._variants:
             return {name: v.to_dict() for name, v in self._variants.items()}
         return None
@@ -83,11 +102,17 @@ class union(obj):
         return self.resolver.resolve(self.size, 0)
 
     def freeze(self: union) -> None:
-        """Freeze the union and all its variants."""
+        """Freeze the union and all its variants.
+
+        Snapshots the current variant (if dispatched live) so that frozen reads
+        return a consistent value even if the discriminator later changes in memory.
+        """
         if self.resolver is not None:
             self._frozen_bytes = self.resolver.resolve(self.size, 0)
         else:
             self._frozen_bytes = b"\x00" * self.size
+        if self._dispatcher is not None:
+            self._variant = self._dispatcher()
         if self._variant is not None:
             self._variant.freeze()
         for v in self._variants.values():
@@ -96,8 +121,9 @@ class union(obj):
 
     def diff(self: union) -> tuple[object, object]:
         """Return the difference between the frozen and current value."""
-        if self._variant is not None:
-            return self._variant.diff()
+        active = self._active_variant()
+        if active is not None:
+            return active.diff()
         return {name: v.diff() for name, v in self._variants.items()}
 
     def reset(self: union) -> None:
@@ -109,8 +135,9 @@ class union(obj):
 
     def to_str(self: union, indent: int = 0) -> str:
         """Return a string representation of the union."""
-        if self._variant is not None:
-            return self._variant.to_str(indent)
+        active = self._active_variant()
+        if active is not None:
+            return active.to_str(indent)
         if self._variants:
             members = ", ".join(self._variants)
             return f"union({members})"
@@ -126,7 +153,13 @@ class union(obj):
             pass
 
         try:
-            variant = object.__getattribute__(self, "_variant")
+            frozen = object.__getattribute__(self, "_frozen")
+            dispatcher = object.__getattribute__(self, "_dispatcher")
+            variant = (
+                object.__getattribute__(self, "_variant")
+                if frozen or dispatcher is None
+                else dispatcher()
+            )
             if variant is not None:
                 return getattr(variant, name)
         except AttributeError:

@@ -39,14 +39,13 @@ class struct_impl(struct):
 
     def __init__(self: struct_impl, resolver: Resolver | None = None, **kwargs: ...) -> None:
         """Initialize the struct implementation."""
-        # If we have kwargs and the resolver is None, we provide a fake resolver
         if kwargs and resolver is None:
             resolver = FakeResolver()
 
         if not isinstance(resolver, Resolver):
             raise TypeError("The resolver must be a Resolver instance.")
 
-        # struct overrides the __init__ method, so we need to call the parent class __init__ method
+        # struct.__init__ raises by design; bypass it and call obj.__init__ directly.
         obj.__init__(self, resolver)
 
         object.__setattr__(self, "_struct_name", self.__class__.__name__)
@@ -60,13 +59,22 @@ class struct_impl(struct):
 
     def __getattribute__(self: struct_impl, name: str) -> object:
         """Return the attribute, checking struct members first to avoid collisions with obj properties."""
-        # Check _members dict directly to avoid infinite recursion
         try:
             members = object.__getattribute__(self, "_members")
-            if name in members:
-                return members[name]
         except AttributeError:
-            pass
+            return super().__getattribute__(name)
+        if name in members:
+            return members[name]
+        if name == "size":
+            # VLA structs store _vla_fixed_offset instead of an instance size attr;
+            # without this, `instance.size` would fall back to the static class size
+            # (set by compute_own_size), missing the dynamic VLA contribution.
+            try:
+                vla_offset = object.__getattribute__(self, "_vla_fixed_offset")
+            except AttributeError:
+                pass
+            else:
+                return vla_offset + next(reversed(members.values())).size
         return super().__getattribute__(name)
 
     def __setattr__(self: struct_impl, name: str, value: object) -> None:
@@ -81,9 +89,7 @@ class struct_impl(struct):
         object.__setattr__(self, name, value)
 
     def __new__(cls: struct_impl, *args: ..., **kwargs: ...) -> Self:
-        """Create a new struct."""
-        # Skip the __new__ method of the parent class
-        # struct_impl -> struct -> obj becomes struct_impl -> obj
+        """Create a new struct, bypassing struct.__new__ which is for the user-facing factory."""
         return obj.__new__(cls)
 
     def _inflate_struct_attributes(
@@ -152,13 +158,12 @@ class struct_impl(struct):
                 max_alignment = max(max_alignment, aligned)
             current_offset = _align_offset(current_offset, max_alignment)
 
-        # For VLA structs, size must be computed dynamically since the count
-        # can change at runtime.  Detect VLA by duck-typing: vla_impl has a
-        # _count_member attribute that plain array_impl does not.
+        # VLA detection uses duck-typing on _count_member to avoid a circular
+        # import between struct_impl and vla_impl (vla_impl extends array_impl,
+        # which imports struct).
         members = object.__getattribute__(self, "_members")
-        last_member = list(members.values())[-1] if members else None
+        last_name, last_member = next(reversed(members.items()), (None, None))
         if last_member is not None and hasattr(last_member, "_count_member"):
-            last_name = list(members.keys())[-1]
             object.__setattr__(self, "_vla_fixed_offset", self._member_offsets[last_name])
         else:
             object.__setattr__(self, "size", current_offset)
@@ -178,14 +183,18 @@ class struct_impl(struct):
             Either resolved_inflater or bitfield_field will be non-None (not both).
             explicit_offset is set when an OffsetAttribute is present.
         """
-        # Unwrap Annotated[type, metadata...] — extract the real type and any metadata
         annotated_offset = None
         if get_origin(annotation) is Annotated:
             ann_args = get_args(annotation)
             annotation = ann_args[0]
-            for meta in ann_args[1:]:
-                if isinstance(meta, OffsetAttribute):
-                    annotated_offset = meta.offset
+            ann_offsets = [m.offset for m in ann_args[1:] if isinstance(m, OffsetAttribute)]
+            if len(ann_offsets) > 1:
+                raise ValueError(
+                    f"Field {name!r} has multiple OffsetAttribute entries in its Annotated metadata; "
+                    f"only one is allowed.",
+                )
+            if ann_offsets:
+                annotated_offset = ann_offsets[0]
 
         if name not in reference.__dict__:
             return inflater.inflater_for(annotation, owner=owner), None, annotated_offset
@@ -196,6 +205,13 @@ class struct_impl(struct):
 
         if sum(isinstance(attr, Field) for attr in attrs) > 1:
             raise ValueError("Only one Field is allowed per attribute.")
+
+        attr_offsets = sum(isinstance(a, OffsetAttribute) for a in attrs)
+        if attr_offsets + (1 if annotated_offset is not None else 0) > 1:
+            raise ValueError(
+                f"Field {name!r} has multiple OffsetAttribute entries (across Annotated metadata "
+                f"and attribute tuple); only one is allowed.",
+            )
 
         resolved_type = None
         bitfield_field = None
@@ -226,6 +242,7 @@ class struct_impl(struct):
         bf_tracker = BitfieldTracker()
         aligned = getattr(reference_type, "_aligned_", False)
         seen_vla = False
+        seen_names: set[str] = set()
 
         for name, annotation, reference in iterate_annotation_chain(reference_type, terminate_at=struct):
             if name == "_aligned_":
@@ -240,12 +257,23 @@ class struct_impl(struct):
             # Detect VLA from default value or subscript annotation
             default = getattr(reference, name, None) if hasattr(reference, name) else None
             is_vla = isinstance(default, VLAField)
-            if not is_vla and isinstance(annotation, GenericAlias):
+            count_field_name: str | None = None
+            if is_vla:
+                count_field_name = default.count_field
+            elif isinstance(annotation, GenericAlias):
                 args = annotation.__args__
                 if len(args) == 2 and isinstance(args[1], str):
                     is_vla = True
+                    count_field_name = args[1]
             if is_vla:
+                if count_field_name is not None and count_field_name not in seen_names:
+                    raise ValueError(
+                        f"VLA field {name!r} references undefined count field {count_field_name!r}. "
+                        f"The count field must be declared before the VLA in the same struct.",
+                    )
                 seen_vla = True
+
+            seen_names.add(name)
 
             resolved_type, bitfield_field, explicit_offset = struct_impl._resolve_field(
                 name, annotation, reference, cls._inflater, owner=(None, cls),
@@ -346,13 +374,13 @@ class struct_impl(struct):
         super().freeze()
 
     def reset(self: struct_impl) -> None:
-        """Reset each member to its frozen value."""
+        """Restore the struct's memory region to the bytes captured at freeze time."""
         if not object.__getattribute__(self, "_frozen"):
             raise RuntimeError("Cannot reset a struct that has not been frozen.")
 
-        members = object.__getattribute__(self, "_members")
-        for member in members.values():
-            member.reset()
+        resolver = object.__getattribute__(self, "resolver")
+        frozen_bytes = object.__getattribute__(self, "_frozen_struct_bytes")
+        resolver.modify(len(frozen_bytes), 0, frozen_bytes)
 
     def to_str(self: struct_impl, indent: int = 0) -> str:
         """Return a string representation of the struct."""
@@ -378,6 +406,8 @@ class struct_impl(struct):
         {members}
     }}
 }}"""
+
+    __hash__ = object.__hash__
 
     def __eq__(self: struct_impl, value: object) -> bool:
         """Return whether the struct is equal to the given value."""

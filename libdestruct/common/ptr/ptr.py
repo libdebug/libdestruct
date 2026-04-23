@@ -58,8 +58,8 @@ class ptr(obj[T]):
         """
         super().__init__(resolver)
         self.wrapper = wrapper
-        self._cached_unwrap: obj | bytes | None = None
-        self._cache_valid: bool = False
+        self._cached_unwrap: obj | None = None
+        self._cached_address: int | None = None
         self._cached_length: int | None = None
 
     def get(self: ptr) -> int:
@@ -82,7 +82,7 @@ class ptr(obj[T]):
     def invalidate(self: ptr) -> None:
         """Clear the cached unwrap result."""
         self._cached_unwrap = None
-        self._cache_valid = False
+        self._cached_address = None
         self._cached_length = None
 
     def unwrap(self: ptr, length: int | None = None) -> obj | bytes:
@@ -91,22 +91,22 @@ class ptr(obj[T]):
         Args:
             length: The length of the object in memory this points to.
         """
-        if self._cache_valid and self._cached_length == length:
-            return self._cached_unwrap
-
         address = self.get()
 
-        if self.wrapper:
-            if length:
-                raise ValueError("Length is not supported when unwrapping a pointer to a wrapper object.")
-
-            result = self.wrapper(self.resolver.absolute_from_own(address))
-        else:
+        if not self.wrapper:
+            # Bytes are a snapshot; never cache — always read live.
             target_resolver = self.resolver.absolute_from_own(address)
-            result = target_resolver.resolve(length if length is not None else 1, 0)
+            return target_resolver.resolve(length if length is not None else 1, 0)
 
+        if length:
+            raise ValueError("Length is not supported when unwrapping a pointer to a wrapper object.")
+
+        if self._cached_unwrap is not None and self._cached_address == address and self._cached_length == length:
+            return self._cached_unwrap
+
+        result = self.wrapper(self.resolver.absolute_from_own(address))
         self._cached_unwrap = result
-        self._cache_valid = True
+        self._cached_address = address
         self._cached_length = length
         return result
 
@@ -116,9 +116,6 @@ class ptr(obj[T]):
         Args:
             length: The length of the object in memory this points to.
         """
-        if self._cache_valid and self._cached_length == length:
-            return self._cached_unwrap
-
         address = self.get()
 
         try:
@@ -152,12 +149,12 @@ class ptr(obj[T]):
     def __add__(self: ptr, n: int) -> ptr:
         """Return a new pointer advanced by n elements."""
         new_addr = self.get() + n * self._element_size
-        return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
+        return type(self)(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
 
     def __sub__(self: ptr, n: int) -> ptr:
         """Return a new pointer retreated by n elements."""
         new_addr = self.get() - n * self._element_size
-        return ptr(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
+        return type(self)(_ArithmeticResolver(self.resolver, new_addr), self.wrapper)
 
     def __getitem__(self: ptr, n: int) -> obj:
         """Return the object at index n relative to this pointer."""

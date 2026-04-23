@@ -8,6 +8,8 @@ import unittest
 
 from enum import Enum, IntEnum
 from libdestruct import inflater, c_int, enum, enum_of, struct
+from libdestruct.backing.memory_resolver import MemoryResolver
+from libdestruct.common.enum.enum import enum as ld_enum
 
 class EnumTest(unittest.TestCase):
     def test_enum(self):
@@ -131,3 +133,51 @@ class EnumTest(unittest.TestCase):
 
         result = bytes(test)
         self.assertIsInstance(result, bytes)
+
+
+class EnumLenientSetTest(unittest.TestCase):
+    """enum._set must handle raw ints from lenient mode without crashing."""
+
+    def test_set_raw_int_from_lenient_get(self):
+        """Setting back a raw int obtained from lenient get() should work."""
+        class Color(IntEnum):
+            RED = 0
+            GREEN = 1
+
+        memory = bytearray((99).to_bytes(4, "little"))
+        e = ld_enum(MemoryResolver(memory, 0), Color, c_int, lenient=True)
+
+        val = e.get()
+        self.assertEqual(val, 99)
+        self.assertIsInstance(val, int)
+        self.assertNotIsInstance(val, IntEnum)
+
+        e.value = val
+        self.assertEqual(e.get(), 99)
+
+    def test_set_enum_member_still_works(self):
+        """Setting a valid enum member should still work."""
+        class Color(IntEnum):
+            RED = 0
+            GREEN = 1
+
+        memory = bytearray(4)
+        e = ld_enum(MemoryResolver(memory, 0), Color, c_int, lenient=True)
+
+        e.value = Color.GREEN
+        self.assertEqual(e.get(), Color.GREEN)
+
+    def test_reset_after_freeze_with_unknown_value(self):
+        """freeze() + reset() with unknown enum value should not crash."""
+        class Color(IntEnum):
+            RED = 0
+            GREEN = 1
+
+        memory = bytearray((99).to_bytes(4, "little"))
+        e = ld_enum(MemoryResolver(memory, 0), Color, c_int, lenient=True)
+
+        e.freeze()
+        memory[0:4] = (0).to_bytes(4, "little")
+
+        e.reset()
+        self.assertEqual(e.get(), 99)

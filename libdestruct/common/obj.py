@@ -145,6 +145,10 @@ class obj(ABC, Generic[T]):
             return self_val, other
         return None
 
+    # Restore identity hashing — Python blanks __hash__ when __eq__ is defined.
+    # Equality is value-based but hash is identity, so {a, b} won't dedupe equal values.
+    __hash__ = object.__hash__
+
     def __eq__(self: obj, other: object) -> bool:
         """Return whether the object is equal to the given value."""
         pair = self._compare_value(other)

@@ -26,11 +26,12 @@ class c_str(array):
 
     def get(self: c_str, index: int = -1) -> bytes:
         """Return the character at the given index."""
-        if (index != -1 and index < 0) or index >= self.count():
+        length = self.count()
+        if (index != -1 and index < 0) or index >= length:
             raise IndexError("String index out of range.")
 
         if index == -1:
-            return self.resolver.resolve(self.count(), 0)
+            return self.resolver.resolve(length, 0)
 
         return bytes([self.resolver.resolve(index + 1, 0)[-1]])
 

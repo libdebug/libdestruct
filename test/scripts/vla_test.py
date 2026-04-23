@@ -313,5 +313,33 @@ class VLATest(unittest.TestCase):
             lib.inflate(packet_t, 0)
 
 
+class VLAInstanceSizeTest(unittest.TestCase):
+    """`instance.size` on a VLA struct must report the dynamic size, not the class static size."""
+
+    def test_vla_instance_size_matches_size_of(self):
+        class packet_t(struct):
+            length: c_int
+            data: array[c_int, "length"]
+
+        data = pystruct.pack("<i", 3) + pystruct.pack("<iii", 10, 20, 30)
+        memory = bytearray(data)
+        pkt = packet_t.from_bytes(memory)
+        self.assertEqual(pkt.size, size_of(pkt))
+        self.assertEqual(pkt.size, 16)
+
+    def test_vla_instance_size_updates_when_count_changes(self):
+        class packet_t(struct):
+            length: c_int
+            data: array[c_int, "length"]
+
+        memory = bytearray(pystruct.pack("<i", 2) + pystruct.pack("<ii", 10, 20) + b"\x00" * 16)
+        lib = inflater(memory)
+        pkt = lib.inflate(packet_t, 0)
+        self.assertEqual(pkt.size, 12)
+
+        memory[0:4] = pystruct.pack("<i", 4)
+        self.assertEqual(pkt.size, 20)
+
+
 if __name__ == "__main__":
     unittest.main()
